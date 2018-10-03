@@ -5,15 +5,15 @@ import networkx as nx
 #TODO: Think about directionality in more detail, as well as multiple edges between the same two nodes
 
 class Cyclist(object):
-    def __init__(self, acceptableStress, graph, location):
-        self.acceptableStress = acceptableStress
+    def __init__(self, acceptable_stress, graph, location):
+        self.acceptable_stress = acceptable_stress
         self.graph = graph
         self.location = location
 
-    def reconstruct_path(self, cameFrom, current):
+    def reconstruct_path(self, came_from, current):
         total_path = [current]
-        while current in cameFrom:
-            current = cameFrom[current]
+        while current in came_from:
+            current = came_from[current]
             if current:
                 total_path.append(current) 
         return total_path[::-1]
@@ -22,14 +22,14 @@ class Cyclist(object):
     #Copied off wikipedia's A* search algorithm page. 
     # Minimizes f(n) = g(n) + h(n) where g(n) is cost to get from start to n and h(n) is some heuristic for how far n is from the goal
     # In our case, h(n) could be the absolute (x/y) distance
-    def aStarSearch(self, g, acceptableStress, start, goal): 
+    def a_star_search(self, g, acceptable_stress, start, goal): 
         # start and goal are node uids instead of the actual node objects, for convenience.
         # Graph[start] will give us the actual node object with uid = start.
 
         evaluated = set() # set of all the nodes we've evaluated
         known = {start} # set of all the nodes we know exist
 
-        cameFrom = {start:None} # node : preceding_node_in_shortest_path
+        came_from = {start:None} # node : preceding_node_in_shortest_path
 
         gScore = defaultdict(lambda:2**31) # distance from start
         gScore[start] = 0
@@ -40,7 +40,7 @@ class Cyclist(object):
             current = sorted([uid for uid in known], key = lambda x: fScore[x])[0] # we sort by the uids by fScore[uid] and take the first index
             # print("current:", current)
             if current == goal:
-                return self.reconstruct_path(cameFrom, current)
+                return self.reconstruct_path(came_from, current)
 
             known.remove(current)
             evaluated.add(current)
@@ -49,7 +49,7 @@ class Cyclist(object):
 
             for child in g[current].children:
                 # print("child:", child)
-                if child in evaluated or g[child].stress > acceptableStress:
+                if child in evaluated or g[child].stress > acceptable_stress:
                     continue
                 else:
                     tentative_gScore = gScore[current] + g[child].length
@@ -61,13 +61,13 @@ class Cyclist(object):
                     continue
 
                 # This path is the best path so far.
-                cameFrom[child] = current
+                came_from[child] = current
                 gScore[child] = tentative_gScore
                 fScore[child] = tentative_gScore + g[child].get_distance_from_goal(goal)
                 # print("child fScore:", fScore[child])
 
     def decide(self, goal):
-        return self.aStarSearch(self.graph.nodes, self.acceptableStress, self.location, goal)
+        return self.a_star_search(self.graph.nodes, self.acceptable_stress, self.location, goal)
 
 
 class Node(object):
@@ -81,11 +81,11 @@ class Node(object):
 
         self.distance_from_goal = distance_from_goal # in the future we might want an x/y coordinate for Nodes to calculate distance from goal.
         
-    def add_children(self, listOfChildren):
+    def add_children(self, list_of_children):
         if self.children == None:
-            self.children = listOfChildren
+            self.children = list_of_children
         else:
-            self.children.extend(listOfChildren)
+            self.children.extend(list_of_children)
 
     def get_distance_from_goal(self, goal):
         return self.distance_from_goal
