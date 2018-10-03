@@ -1,1 +1,9 @@
 env/
+*.shp
+*.shx
+*.dbf
+*.sbx
+*.sbn
+*.prj
+*.shp.xml
+*.cpg
