@@ -7,3 +7,5 @@ env/
 *.prj
 *.shp.xml
 *.cpg
+
+Shapefile/
