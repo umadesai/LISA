@@ -5,34 +5,35 @@ import networkx as nx
 
 
 try:
-    G=nx.read_shp('2017_LTS_Trails_FINAL.shp')
+    G=nx.read_shp("Shapefile/2017_LTS_Trails_FINAL.shp")
 except:
     print("shapefile read failed")
 
-G = nx.DiGraph(day="Friday")
-G.add_nodes_from([(1,{"nodeAttr":1}), (2,{"nodeAttr":2})])
+# G = nx.DiGraph(day="Friday")
+# G.add_nodes_from([(1,{"nodeAttr":1}), (2,{"nodeAttr":2})])
 
 
-def decide_stress():
-    return edgeDict.get("part1",0) + edgeDict.get("part2",0)
+# def decide_stress():
+#     return edgeDict.get("part1",0) + edgeDict.get("part2",0)
 
 
-edgeDict = {"part1":5, "part2": 10, "decide_stress": decide_stress}
+# edgeDict = {"part1":5, "part2": 10, "decide_stress": decide_stress}
 
-edge1 = (1,2,edgeDict)
+# edge1 = (1,2,edgeDict)
 
-edgeList = [edge1]
-
-
+# edgeList = [edge1]
 
 
-G.add_edges_from(edgeList)
+print(len(G.nodes))
+print(len(G.edges))
+
+# G.add_edges_from(edgeList)
 
 # G.add_edges_from([(1,2,{"edgeAttr":3})])
 
 # print(G[1][2]["edgeAttr"])
-print([tup for tup in G[1].items()])
-print([k.get("decide_stress") for _ ,k in G[1].items()])
+# print([tup for tup in G[1].items()])
+# print([k.get("decide_stress") for _ ,k in G[1].items()])
 
 # def create_test_graph():
 #     G = nx.DiGraph()
