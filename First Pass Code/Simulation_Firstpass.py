@@ -1,5 +1,9 @@
 from collections import defaultdict, namedtuple, Counter
 import networkx as nx
+import osmnx as ox
+import math
+
+
 
 
 #TODO: Think about directionality in more detail, as well as multiple edges between the same two nodes
@@ -22,9 +26,9 @@ class Cyclist(object):
     #Copied off wikipedia's A* search algorithm page. 
     # Minimizes f(n) = g(n) + h(n) where g(n) is cost to get from start to n and h(n) is some heuristic for how far n is from the goal
     # In our case, h(n) could be the absolute (x/y) distance
-    def a_star_search(self, g, acceptable_stress, start, goal): 
+    def a_star_search(self, g, start, goal, probabilistic=False): 
         # start and goal are node uids instead of the actual node objects, for convenience.
-        # Graph[start] will give us the actual node object with uid = start.
+        # g[start] will give us the actual node object with uid = start.
 
         evaluated = set() # set of all the nodes we've evaluated
         known = {start} # set of all the nodes we know exist
@@ -38,7 +42,6 @@ class Cyclist(object):
 
         while known:
             current = sorted([uid for uid in known], key = lambda x: fScore[x])[0] # we sort by the uids by fScore[uid] and take the first index
-            # print("current:", current)
             if current == goal:
                 return self.reconstruct_path(came_from, current)
 
@@ -48,9 +51,14 @@ class Cyclist(object):
                 continue
 
             for child in g[current].children:
-                # print("child:", child)
-                if child in evaluated or g[child].stress > acceptable_stress:
+                if child in evaluated:
                     continue
+                elif g[child].stress > self.acceptable_stress:
+                    if not probabilistic:
+                        continue
+                    else:
+                        if math.random()<0.9:
+                            continue
                 else:
                     tentative_gScore = gScore[current] + g[child].length
 
@@ -60,14 +68,14 @@ class Cyclist(object):
                 elif tentative_gScore > gScore[child]: # we found a worse path.
                     continue
 
-                # This path is the best path so far.
+                # We've found a faster way to get from start to child.
                 came_from[child] = current
                 gScore[child] = tentative_gScore
                 fScore[child] = tentative_gScore + g[child].get_distance_from_goal(goal)
-                # print("child fScore:", fScore[child])
+
 
     def decide(self, goal):
-        return self.a_star_search(self.graph.nodes, self.acceptable_stress, self.location, goal)
+        return self.a_star_search(self.graph.nodes,self.location, goal)
 
 
 class Node(object):
@@ -77,7 +85,7 @@ class Node(object):
         self.length = length
 
         self.children = None
-        self.children = self.add_children(children)
+        self.children = self.add_children(children) # children is a list of child uids.
 
         self.distance_from_goal = distance_from_goal # in the future we might want an x/y coordinate for Nodes to calculate distance from goal.
         
@@ -132,8 +140,8 @@ def test_cyclist_decision():
     c1 = Cyclist(2, graph = G, location=1)
     c2 = Cyclist(4, graph = G, location=1)
 
-    print(c1.decide(goal=4))
-    print(c2.decide(goal=4))
+    print("Unskilled cyclist:", c1.decide(goal=4))
+    print("Skilled cyclist:", c2.decide(goal=4))
 
 
 test_cyclist_decision()
