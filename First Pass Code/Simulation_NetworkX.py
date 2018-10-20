@@ -7,44 +7,53 @@ from itertools import count
 
 
 
-
-# G=nx.read_shp('test.shp')
-
-
-
 """
-TODO: Generate a class of cyclists that calculates stress and decides routes the same way and put them on the graph at the same time. 
-Then we can make different classes of cyclists of different sizes to reflect a bell-curved population and overlay the results.
-
-Eventually we might want to figure out where the bottlenecks are: 
-
 Can a cyclist edit an edge's attribute dictionary in real time? If yes (and we run groups of identical cyclists over the graph)
     we can have the first explorer calculate stress and have everyone else read directly from the edge
-
 
 Also: maybe have the cyclists capture points on their route where they decided against a certain edge/node (and why?)
 """
 
 
 
+
+
 class Cyclist(object):
-    def __init__(self, acceptable_stress, graph, location, calculate_stress, probabilistic=True):
+    """
+    An object representing a cyclist.
+
+    decision_weights is a dictionary describing how much each cyclist cares about each road attribute category.
+    calculate_stress is a function that uses the cyclist's feelings on each attribute to calculate the stress of an edge.
+
+    """
+    def __init__(self, acceptable_stress, graph, location, calculate_stress, decision_weights, probabilistic=True):
         self.acceptable_stress = acceptable_stress
         self.graph = graph
         self.location = location
         self.probabilistic = probabilistic
         self.calculate_stress = calculate_stress
 
-    def decide_weight(self, edgeDict):
+        self.signal_weight = decision_weights.get("signal_weight",1)
+        self.separation_weight = decision_weights.get("separation_weight",1)
+        self.traffic_weight = decision_weights.get("traffic_weight",1)
+        self.decision_model = decision_weights.get("name","Unknown decision")
+
+    def decide_weight(self, edgeDict, currentNode):
+        """
+        Decides whether an edge is worth taking based on stress. High weights are bad.
+        A node whose stress exeeds self.acceptable_stress is often (always if self.probabilistic = False) given an arbitrarily high weight.
+        """
         if edgeDict.get("stress", None):
             stress = edgeDict["stress"]
 
         else:
-            stress = self.calculate_stress(edgeDict)
+            stress = self.calculate_stress(edgeDict, self.signal_weight, self.separation_weight, self.traffic_weight)
+            # print("current node: ", currentNode, "edges: ", edgeDict.get("from",0), edgeDict.get("to",0), "stress: ", stress)
 
         if stress > self.acceptable_stress:
             if not (self.probabilistic and math.random()>0.9):
-            # cyclist decides to skip the stress
+                # cyclist decides to skip the stressful edge
+                print("skipping node: ", currentNode, "edges: ", edgeDict.get("from",0), edgeDict.get("to",0))
                 return 10000000                
         return edgeDict.get("length",0) # return edge length
 
@@ -148,7 +157,7 @@ class Cyclist(object):
             for neighbor, w in G[curnode].items(): # w is the edge dict
                 if neighbor in explored:
                     continue
-                ncost = dist + self.decide_weight(edgeDict = w) 
+                ncost = dist + self.decide_weight(edgeDict = w, currentNode = neighbor) 
                 # This is what we changed. weight is a cyclist-owned function that takes in an edge attribute dictionary and calculates a weight.
                 if neighbor in enqueued:
                     qcost, h = enqueued[neighbor]
@@ -163,53 +172,39 @@ class Cyclist(object):
                 enqueued[neighbor] = ncost, h
                 push(queue, (ncost + h, next(c), neighbor, ncost, curnode))
 
+            # if curnode == target:
+            #     path = [curnode]
+            #     node = parent
+            #     while node is not None:
+            #         path.append(node)
+            #         node = explored[node]
+            #     path.reverse()
+            #     return path
+
+            # explored[curnode] = parent
+
         raise nx.NetworkXNoPath("Node %s not reachable from %s" % (source, target))
 
     def heuristic(self, node1, node2):
         """
         Estimates the displacement between node1 (current location) and node2 (eventual destination).
         This ensures the algorithm starts off by trying the paths that lead us in the direction of the destination.
+
+        Eventually we'll be calculating as-the-crow-flies distance.
         """
         return self.graph.nodes()[node1]['displacement']
 
     def decide(self, goal):
+        """
+        Wrapper for the astar search.
+        """
         return self.astar_path_with_calculation(self.graph, self.location, goal, heuristic = self.heuristic)
 
 
-
-def create_test_graph(stress_already_calculated = False):
-    G = nx.DiGraph()
-
-    if stress_already_calculated:
-        edge12 = (1,2,{"length": 3, "stress":1, "roadType":"edge"})
-        edge23 = (2,3,{"length": 4, "stress":1, "roadType":"edge"})
-        edge34 = (3,4,{"length": 3, "stress":1, "roadType":"edge"})
-        edge15 = (1,5,{"length": 3, "stress":4, "roadType":"edge"})
-        edge54 = (5,4,{"length": 3, "stress":1, "roadType":"edge"})
-
-    else:
-        edge12 = (1,2,{"length": 3, "signalized":1, "separated":1, "traffic":1, "roadType":"edge"})
-        edge23 = (2,3,{"length": 4, "signalized":1, "separated":1, "traffic":1, "roadType":"edge"})
-        edge34 = (3,4,{"length": 3, "signalized":1, "separated":1, "traffic":1, "roadType":"edge"})
-        edge15 = (1,5,{"length": 3, "signalized":0, "separated":0, "traffic":4, "roadType":"edge"})
-        edge54 = (5,4,{"length": 3, "signalized":1, "separated":1, "traffic":1, "roadType":"edge"})
-
-    
-    nodeList = [(1, {"stress":1, 'displacement':10}),
-                (2, {"stress":1, 'displacement':6}),
-                (3, {"stress":1, 'displacement':3}),
-                (4, {"stress":1, 'displacement':0}),
-                (5, {"stress":4, 'displacement':7})]
-    edgeList = [edge12,edge23,edge34,edge15,edge54]
-    
-
-    G.add_nodes_from(nodeList)
-    G.add_edges_from(edgeList)
-        
-    return G
-
-
 def calculate_stress(edgeDict, signal_weight=1, separation_weight=1, traffic_weight=1):
+    """
+    Takes in an edge attribute dictionary and calculates a stress level.
+    """
     stress = 1
     signalized = edgeDict.get("signalized",0) # each of these might be a function that reads more attributes from the edgeDict
     separated = edgeDict.get("separated",0)
@@ -220,22 +215,78 @@ def calculate_stress(edgeDict, signal_weight=1, separation_weight=1, traffic_wei
     if not separated:
         stress += separation_weight
 
-    stress += (traffic - 1)/2.0 * traffic_weight
+    stress += (traffic - 1)/2.0 * traffic_weight # handwavey math so traffic doesn't just cap everything at 4
 
     return min(stress, 4)
 
 
 
+def create_test_graph():
+    G = nx.DiGraph()
 
+
+    edge12 = (1,2,{"from":1, "to":2, "length": 3, "signalized":0, "separated":0, "traffic":1}) # only consistent good feature is traffic
+    edge23 = (2,3,{"from":2, "to":3, "length": 4, "signalized":1, "separated":0, "traffic":1})
+    edge34 = (3,4,{"from":3, "to":4, "length": 3, "signalized":0, "separated":1, "traffic":1})
+
+    edge16 = (1,6,{"from":1, "to":6, "length": 3, "signalized":1, "separated":0, "traffic":2}) # only consistent good feature is signalization
+    edge67 = (6,7,{"from":6, "to":7, "length": 4, "signalized":1, "separated":1, "traffic":4})
+    edge74 = (7,4,{"from":7, "to":4, "length": 3, "signalized":1, "separated":0, "traffic":3})
+
+    edge18 = (1,8,{"from":1, "to":8, "length": 3, "signalized":0, "separated":1, "traffic":1}) # only consistent good feature is separation
+    edge89 = (8,9,{"from":8, "to":9, "length": 4, "signalized":1, "separated":1, "traffic":1})
+    edge94 = (9,4,{"from":9, "to":4, "length": 3, "signalized":0, "separated":1, "traffic":1})
+
+    edge15 = (1,5,{"from":1, "to":5, "length": 3, "signalized":0, "separated":0, "traffic":4}) # everything is bad here
+    edge54 = (5,4,{"from":5, "to":4, "length": 3, "signalized":0, "separated":0, "traffic":4}) 
+
+
+    
+    nodeList = [(1, {'displacement':10}),
+                (2, {'displacement':6}),
+                (3, {'displacement':3}),
+                (4, {'displacement':0}),
+                (5, {'displacement':7}),
+                (6, {'displacement':6}),
+                (7, {'displacement':3}),
+                (8, {'displacement':6}),
+                (9, {'displacement':3})]
+    edgeList = [edge12,edge23,edge34,edge15,edge54,edge16,edge67,edge74,edge18,edge89,edge94]
+    
+
+    G.add_nodes_from(nodeList)
+    G.add_edges_from(edgeList)
+        
+    return G
 
 def test_cyclist_decision():
 
-    G = create_test_graph()
-    c1 = Cyclist(acceptable_stress = 2, graph = G, location=1, calculate_stress = calculate_stress, probabilistic = False)
-    c2 = Cyclist(acceptable_stress = 4, graph = G, location=1, calculate_stress = calculate_stress, probabilistic = False)
+    likes_low_traffic = {"name":"likes_low_traffic", "signal_weight":1, "separation_weight":1, "traffic_weight":2}
+    likes_separation = {"name":"likes_separation", "signal_weight":1, "separation_weight":2, "traffic_weight":1}
+    likes_signals = {"name":"likes_signals", "signal_weight":2, "separation_weight":1, "traffic_weight":1}
 
-    print("Unskilled cyclist:", c1.decide(goal=4))
-    print("Skilled cyclist:", c2.decide(goal=4))
+    decision_models = [likes_low_traffic, likes_separation, likes_signals]
+
+    G = create_test_graph()
+
+    unskilled_cyclists = []
+    skilled_cyclists = []
+    for i in range(3):
+        unskilled_cyclists.append(Cyclist(acceptable_stress=3, graph=G, location=1, calculate_stress=calculate_stress, decision_weights=decision_models[i], probabilistic=False))
+        skilled_cyclists.append(Cyclist(acceptable_stress=4, graph=G, location=1, calculate_stress=calculate_stress, decision_weights=decision_models[i], probabilistic=False))
+
+
+    for u_cyclist in unskilled_cyclists:
+        print("Unskilled cyclist - ", u_cyclist.decision_model, u_cyclist.decide(goal=4))
+
+    for s_cyclist in skilled_cyclists:
+        print("Skilled cyclist - ", s_cyclist.decision_model, s_cyclist.decide(goal=4))
+
+    # c1 = Cyclist(acceptable_stress = 2, graph = G, location=1, calculate_stress = calculate_stress, decision_weights =  likes_low_traffic, probabilistic = False)
+    # c2 = Cyclist(acceptable_stress = 4, graph = G, location=1, calculate_stress = calculate_stress, decision_weights =  likes_low_traffic, probabilistic = False)
+
+    # print("Unskilled cyclist:", c1.decide(goal=4))
+    # print("Skilled cyclist:", c2.decide(goal=4))
 
 
 test_cyclist_decision()

@@ -3,11 +3,21 @@ import networkx as nx
 
 ["separation", "signals", "visibility", "traffic"]
 
+if not 0:
+    print("stuff")
+else:
+    print("0 is false-y")
 
-try:
-    G=nx.read_shp("Shapefile/2017_LTS_Trails_FINAL.shp")
-except:
-    print("shapefile read failed")
+
+# try:
+#     G=nx.read_shp("Shapefile/2017_LTS_Trails_FINAL.shp")
+# except:
+#     print("shapefile read failed")
+
+# print(len(G.nodes))
+# print(len(G.edges))
+
+
 
 # G = nx.DiGraph(day="Friday")
 # G.add_nodes_from([(1,{"nodeAttr":1}), (2,{"nodeAttr":2})])
@@ -24,8 +34,7 @@ except:
 # edgeList = [edge1]
 
 
-print(len(G.nodes))
-print(len(G.edges))
+
 
 # G.add_edges_from(edgeList)
 
