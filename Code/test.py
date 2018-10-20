@@ -19,24 +19,31 @@ else:
 
 
 
-# G = nx.DiGraph(day="Friday")
-# G.add_nodes_from([(1,{"nodeAttr":1}), (2,{"nodeAttr":2})])
+G = nx.DiGraph(day="Friday")
+G.add_nodes_from([(1,{"nodeAttr":1}), (2,{"nodeAttr":2})])
 
 
 # def decide_stress():
 #     return edgeDict.get("part1",0) + edgeDict.get("part2",0)
 
 
-# edgeDict = {"part1":5, "part2": 10, "decide_stress": decide_stress}
+edgeDict = {"part1":5, "part2": 10, "decide_stress": 2}
 
-# edge1 = (1,2,edgeDict)
-
-# edgeList = [edge1]
-
+edge12 = (1,2,edgeDict)
+edge21 = (2,1, edgeDict)
 
 
+edgeList = [edge12, edge21]
 
-# G.add_edges_from(edgeList)
+
+
+
+G.add_edges_from(edgeList)
+
+# print(G.adj[1])
+print(G.edges(1))
+print(G.in_edges(1))
+
 
 # G.add_edges_from([(1,2,{"edgeAttr":3})])
 
