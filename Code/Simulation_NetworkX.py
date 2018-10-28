@@ -158,7 +158,7 @@ class Cyclist(object):
                 if neighbor in explored:
                     continue
                 ncost = dist + self.decide_weight(edgeDict = w, currentNode = neighbor) 
-                # This is what we changed. weight is a cyclist-owned function that takes in an edge attribute dictionary and calculates a weight.
+                # This is what we changed. decide_weight is a cyclist-owned function that takes in an edge attribute dictionary and calculates a weight.
                 if neighbor in enqueued:
                     qcost, h = enqueued[neighbor]
                     # if qcost <= ncost, a less costly path from the
@@ -256,7 +256,7 @@ def create_test_graph():
 
     G.add_nodes_from(nodeList)
     G.add_edges_from(edgeList)
-        
+    print(G.nodes(data=True))
     return G
 
 def test_cyclist_decision():
