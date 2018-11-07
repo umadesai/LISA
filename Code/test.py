@@ -1,12 +1,61 @@
 import networkx as nx
 
 
-["separation", "signals", "visibility", "traffic"]
 
-if not 0:
-    print("stuff")
-else:
-    print("0 is false-y")
+a = [1,2,3]
+b = [1,2,3]
+# print(a==b)
+# if b[4]:
+#     print("we found something")
+
+
+
+def calculate_deviance_per_length(route_data, source, destination, optimal_routing_function):
+    deviance = 0
+    print("data: ", route_data, source, destination)
+    if source==destination:
+        return deviance
+    optimal_route = optimal_routing_function(source,destination)
+    print("optimal: ", optimal_route)
+    if route_data == optimal_route:
+        return deviance
+    for i in range(len(route_data)):
+        try:
+            if optimal_route[i]!=route_data[i]:
+                deviance += calculate_deviance_per_length(route_data[i:], route_data[i], route_data[-1], optimal_routing_function) * (len(route_data)-i) + 1
+                print("dev1:", deviance)
+            else:
+                continue
+                print("dev2:", deviance)
+        except IndexError: #optimal route is longer
+            deviance += calculate_deviance_per_length(route_data[i:], route_data[i], route_data[-1], optimal_routing_function) * (len(route_data)-i)
+            print("dev3:", deviance)
+    return deviance/(len(route_data)-1)
+
+def foo(source,destination):
+    if source<destination:
+        return [k for k in range(source,destination+1)]
+    else:
+        return[k for k in range(source,destination-1,-1)]
+
+# print(foo(2,6))
+
+print(calculate_deviance_per_length([1,4,3,2],1,2,foo))
+print(calculate_deviance_per_length([1,3,2],1,2,foo))
+
+
+
+
+
+
+
+
+# ["separation", "signals", "visibility", "traffic"]
+
+# if not 0:
+#     print("stuff")
+# else:
+#     print("0 is false-y")
 
 
 # try:
@@ -19,30 +68,30 @@ else:
 
 
 
-G = nx.DiGraph(day="Friday")
-G.add_nodes_from([(1,{"nodeAttr":1}), (2,{"nodeAttr":2})])
+# G = nx.DiGraph(day="Friday")
+# G.add_nodes_from([(1,{"nodeAttr":1}), (2,{"nodeAttr":2})])
 
 
 # def decide_stress():
 #     return edgeDict.get("part1",0) + edgeDict.get("part2",0)
 
 
-edgeDict = {"part1":5, "part2": 10, "decide_stress": 2}
+# edgeDict = {"part1":5, "part2": 10, "decide_stress": 2}
 
-edge12 = (1,2,edgeDict)
-edge21 = (2,1, edgeDict)
-
-
-edgeList = [edge12, edge21]
+# edge12 = (1,2,edgeDict)
+# edge21 = (2,1, edgeDict)
 
 
+# edgeList = [edge12, edge21]
 
 
-G.add_edges_from(edgeList)
 
-# print(G.adj[1])
-print(G.edges(1))
-print(G.in_edges(1))
+
+# G.add_edges_from(edgeList)
+
+# # print(G.adj[1])
+# print(G.edges(1))
+# print(G.in_edges(1))
 
 
 # G.add_edges_from([(1,2,{"edgeAttr":3})])
