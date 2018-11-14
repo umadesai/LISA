@@ -8,6 +8,8 @@ env/
 *.shp.xml
 *.cpg
 
+.idea/
+
 
 Shapefile/
 
