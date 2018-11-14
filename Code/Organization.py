@@ -17,7 +17,7 @@ def translate_biker_data_into_graph_format(set_of_biker_data):
 
     This calls one of several functions that convert biker data (route trace, average daily traffic etc.) into graph-compatible format.
     """
-    set_of_processed_biker_data = data_conversion_function(biker_data)
+    set_of_processed_biker_data = data_conversion_function(set_of_biker_data)
     return set_of_processed_biker_data
 
 
@@ -52,7 +52,7 @@ def get_difference_between(biker_data, ideal_data):
 
 def validate(set_of_biker_data, geographical_data, generate_similar_ideal_data):
     """
-    set_of_real_data is a collection/iterable of real data.
+    set_of_biker_data is a collection/iterable of real data.
         in LTS: real_data is probably an integer array that represents nodes traversed.
 
     graph is a networkX graph tagged with some attributes.
