@@ -100,7 +100,7 @@ def create_path_attribute_distribution(graph, path, attributes):
     return {attributes[k]:attribute_counters[k] for k in range(len(attributes))}
 
 
-def sum_of_squared_differences(distribution_dict_1, distribution_dict_2):
+def sum_of_squared_differences(distribution_dict_1, distribution_dict_2, path_length):
     """
     distribution_dict_1 and 2 are dictionaries with ATTRIBUTE_NAME:DISTRIBUTION_COUNTER key:value pairs representing two paths.
 
@@ -112,19 +112,21 @@ def sum_of_squared_differences(distribution_dict_1, distribution_dict_2):
     for attribute in distribution_dict_1:
         counter1 = distribution_dict_1[attribute]
         counter2 = distribution_dict_2[attribute]
-        print(attribute, counter1, counter2)
+        # print(attribute, counter1, counter2)
         seen = set()
         result = 0
         for key in counter1:
-            print("c1 key", key)
+            # print("c1 key", key)
             seen.add(key)
-            result += (counter1[key] - counter2[key])**2
+            result += (counter1[key]/path_length - counter2[key]/path_length)**2
+            # print("adding to result counter1: ", (counter1[key]/path_length - counter2[key]/path_length)**2)
         for key in counter2:
-            print("c2 key", key)
+            # print("c2 key", key)
             if key not in seen:
                 seen.add(key)
-                result += (counter1[key] - counter2[key])**2
-        print(result)
+                result += (counter1[key]/path_length - counter2[key]/path_length)**2
+                # print("adding to result counter2: ", (counter1[key]/path_length - counter2[key]/path_length)**2)
+        # print(result)
         differences[attribute] = result
 
     return (sum([differences[m] for m in differences]), differences)
@@ -140,7 +142,7 @@ path2_attribute_distribution = create_path_attribute_distribution(G,path2,attrib
 # print(path1_attribute_distribution, path2_attribute_distribution)
 
 
-sum_of_squared_differences = sum_of_squared_differences(path1_attribute_distribution, path2_attribute_distribution)
+sum_of_squared_differences = sum_of_squared_differences(path1_attribute_distribution, path2_attribute_distribution, path_length = 4)
 print(sum_of_squared_differences)
 
 
