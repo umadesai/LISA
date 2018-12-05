@@ -73,4 +73,4 @@ def plot_all_shapes(shape_base, shape_dir="shapefiles/"):
     plt.show()
 
 if __name__ == "__main__":
-    make_graph("Signalized_Intersections_ACISA")
+    make_graph("./sample_data/Signalized_Intersections_ACISA")
