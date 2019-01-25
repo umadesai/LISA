@@ -289,4 +289,5 @@ def test_cyclist_decision():
     # print("Skilled cyclist:", c2.decide(goal=4))
 
 
-test_cyclist_decision()
+if __name__ == "__main__": 
+    test_cyclist_decision()
