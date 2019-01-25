@@ -55,7 +55,7 @@ class NodesGeometry:
         return nodes_xy
     
     def update_nodes_xy(self, nodes_xy, segments):
-        dist = .00001 #change to 10 feet once you figure out units
+        dist = .00001 #TODO: change to 10 feet once you figure out units
         for segment in segments:
             if segment[2]['has_comp']:
                 unit_vec = self.segment_unit_vec(nodes_xy, segment)
@@ -288,17 +288,20 @@ class GraphBuilder:
 
 bbox = Bbox(38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
 
-GB = GraphBuilder(bbox)
+# GB = GraphBuilder(bbox)
+
+# GB.plot_graph()
+
 
 class MapLoader:
     def __init__(self):
         pass
         
 
-bbox = (38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
+# bbox = (38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
 
-bbox_graph = ox.graph_from_bbox(*bbox)
+# bbox_graph = ox.graph_from_bbox(*bbox)
 
-ox.plot_graph(bbox_graph, fig_height=3);
+# ox.plot_graph(bbox_graph, fig_height=3);
 
 name = Name("Needham, MA")
