@@ -3,6 +3,8 @@ import numpy as np
 from collections import defaultdict
 import networkx as nx
 from shapely.geometry import Polygon, MultiPolygon
+import pickle
+import matplotlib.pyplot as plt
 
 class Name:
     def __init__(self, name: str):
@@ -44,6 +46,22 @@ class NodesGeometry:
         nodes_xy = self.update_nodes_xy(nodes_xy, segments)
         self.nodes = self.create_nodes(nodes_xy)
     
+    @staticmethod
+    def xy_vec(nodes_xy, n1, n2):
+        """
+        Calculates the vector that takes you from n1 to n2
+        """
+        return nodes_xy[n2] - nodes_xy[n1]
+
+    @staticmethod
+    def segment_vec(nodes_xy, segment):
+        return NodesGeometry.xy_vec(nodes_xy, segment[0], segment[1])
+
+    @staticmethod
+    def segment_unit_vec(nodes_xy, segment):
+        arr = NodesGeometry.segment_vec(nodes_xy, segment)
+        return arr / np.linalg.norm(arr)
+    
     def create_nodes_xy(self, G, nodes):
         nodes_xy = {}
         for node in nodes:
@@ -55,10 +73,10 @@ class NodesGeometry:
         return nodes_xy
     
     def update_nodes_xy(self, nodes_xy, segments):
-        dist = .00001 #TODO: change to 10 feet once you figure out units
+        dist = .00001 #change to 10 feet once you figure out units
         for segment in segments:
             if segment[2]['has_comp']:
-                unit_vec = self.segment_unit_vec(nodes_xy, segment)
+                unit_vec = NodesGeometry.segment_unit_vec(nodes_xy, segment)
                 perp_vec = np.array([unit_vec[1],unit_vec[0]*-1])
                 nodes_xy[segment[0]] = nodes_xy[segment[0]] + ((unit_vec * dist) + (perp_vec * dist / 2))
                 nodes_xy[segment[1]] = nodes_xy[segment[1]] - ((unit_vec * dist) - (perp_vec * dist / 2))
@@ -67,19 +85,6 @@ class NodesGeometry:
                 nodes_xy[segment[1]] = nodes_xy[segment[1]] - (unit_vec * dist)
     
         return nodes_xy
-
-    def xy_vec(self, nodes_xy, n1, n2):
-        """
-        Calculates the vector that takes you from n1 to n2
-        """
-        return nodes_xy[n2] - nodes_xy[n1]
-
-    def segment_vec(self, nodes_xy, segment):
-        return self.xy_vec(nodes_xy, segment[0], segment[1])
-
-    def segment_unit_vec(self, nodes_xy, segment):
-        arr = self.segment_vec(nodes_xy, segment)
-        return arr / np.linalg.norm(arr)
     
     def create_nodes(self, nodes_xy):
         nodes_graph = {}
@@ -92,7 +97,7 @@ class NodesGeometry:
 class IntersectionBuilder:
     def __init__(self, in_out):
         """
-        :param in_out: in out dictionary of the init_map nodes
+        :param in_out: in out dictionary of the init_graph nodes
         """
         self.intersections = self.create_intersections(in_out)
     
@@ -112,7 +117,7 @@ class IntersectionBuilder:
 class SegmentBuilder:
     def __init__(self, in_out):
         """
-        :param in_out: in out dictionary of the init_map nodes
+        :param in_out: in out dictionary of the init_graph nodes
         """
         self.segments = self.create_segments(in_out)
         self.nodes = self.extract_nodes(self.segments)
@@ -174,16 +179,6 @@ class SegmentBuilder:
         return segments_list
 
 
-class Graph:
-    """
-    A wrapper for nxgraphs that we should probably have
-    
-    Allows conversions between MultiDiGraphs (visualization) and
-    DiGraphs (A*)
-    """
-    pass
-
-
 class GraphBuilder:
     def __init__(self, bound):
         """
@@ -196,15 +191,17 @@ class GraphBuilder:
         TODO: Figure out what should be saved as an attribute and what should be temp
         """
         self.bound = bound
-        self.init_map = self.initialize_map(self.bound)
-        self.in_out = self.create_in_out_dict(self.init_map)
+        self.init_graph = self.initialize_map(self.bound)
+        self.in_out = self.create_in_out_dict(self.init_graph)
         segmentBuilder = SegmentBuilder(self.in_out)
         self.segments = segmentBuilder.segments
         nodes = segmentBuilder.nodes
-        self.nodes = NodesGeometry(self.init_map, nodes, self.segments).nodes
+        self.nodes = NodesGeometry(self.init_graph, nodes, self.segments).nodes
         self.intersections = IntersectionBuilder(self.in_out).intersections
         self.edges = self.create_edges(self.segments, self.intersections)
-        self.G = self.create_graph()
+        self.DG = self.create_dg()
+        self.node_map = self.create_node_map()
+        self.convert_to_int_graph()
     
     def initialize_map(self, bound):
         """
@@ -214,14 +211,14 @@ class GraphBuilder:
         :param bound: user desired bounds of the graph 
         :type bound: Name or Bbox
         """
-        init_map = None
+        init_graph = None
         if type(bound) is Name:
-            init_map = ox.graph_from_place(bound.official_name)
+            init_graph = ox.graph_from_place(bound.official_name)
         elif type(bound) is Bbox:
-            init_map = ox.graph_from_bbox(*bbox)
+            init_graph = ox.graph_from_bbox(*bbox)
         else:
             raise RuntimeError("Could not create graph from specified bound")
-        return init_map
+        return init_graph
                 
     def create_in_out_dict(self, G):
         """
@@ -243,18 +240,52 @@ class GraphBuilder:
             in_out[end]['in'].append(start)
             in_out[start]['out'].append(end)
         return in_out
+    
+    def create_node_map(self):
+        """
+        Creates a node map associating the intitial nodes with the corresponding
+        expanded nodprint(node)es. This will allow us to add data to an entire intersection by
+        just locating the closest node in the initial graph.
+        """
+        node_map = {x:[] for x in self.init_graph.nodes}
+        for node in self.DG.nodes:
+            if node[2] == 'in':
+                node_map[node[0]].append(node)
+            elif node[2] == 'out':
+                node_map[node[1]].append(node)
+            else:
+                raise Exception(f"Found bad node: {node}")
+        return node_map
                         
     def create_edges(self, segments, intersections):
         edges = segments + intersections
         edges = [(u,v,0,d) for u,v,d in edges]
         return edges
     
-    def create_graph(self):
-        G = nx.MultiDiGraph()
-        G.graph = {'name': 'Test Graph','crs': {'init': 'epsg:4326'},'simplified': True}
+    def create_dg(self):
+        G = nx.DiGraph()
         G.add_nodes_from(self.nodes)
-        G.add_edges_from(self.edges)
+
+        G.add_edges_from([(e[0], e[1], e[3]) for e in self.edges])
         return G
+    
+    def convert_to_int_graph(self):
+        node_to_int = {node:i for i,node in enumerate(self.DG.nodes)}
+
+        int_nodes = []
+        for node,data in self.DG.nodes(data=True):
+            int_nodes.append((node_to_int[node],data))
+
+        int_edges = []
+        for n1,n2,data in list(self.DG.edges(data=True)):
+            int_edges.append((node_to_int[n1],node_to_int[n2],data))
+            
+        G = nx.DiGraph()
+        G.add_nodes_from(int_nodes)
+        G.add_edges_from(int_edges)
+        self.DG = G
+        
+        self.node_map = {k:[node_to_int[n] for n in ns] for k,ns in self.node_map.items()}
     
     def plot_graph(self, fig_height=10):
         ox.plot_graph(self.G, fig_height=fig_height)
@@ -263,7 +294,39 @@ class GraphBuilder:
         """
         Helper function to the initial 
         """
-        ox.plot_graph(self.init_map, fig_height=fig_height)
+        ox.plot_graph(self.init_graph, fig_height=fig_height)
+
+
+class Graph:
+    """
+    A wrapper for nxgraphs that we should probably have
+    
+    Allows conversions between MultiDiGraphs (visualization) and
+    DiGraphs (A*)all_angles
+    """
+    def __init__(self):
+        pass
+        
+    @staticmethod
+    def from_bound(bound):
+        G = Graph()
+        graph_builder = GraphBuilder(bound)
+        G.DiGraph = graph_builder.DG
+        G.init_graph = graph_builder.init_graph
+        G.node_map = graph_builder.node_map
+        return G
+    
+    @staticmethod
+    def from_file(filepath):
+        """
+        Unpickle a graph object
+        
+        :param filepath: filepath to the object
+        :type filepath: string
+        :rtype: Graph
+        """
+        with open(filepath, 'rb') as f:
+            return pickle.load(f)
         
     def save(self, filepath):
         """
@@ -273,35 +336,27 @@ class GraphBuilder:
         :type filepath: string
         :rtype: Graph
         """
-        pass
+        with open(filepath, 'wb') as f:
+            pickle.dump(self, f)
+            
+    def create_mdg(self):
+        G = nx.MultiDiGraph()
+        G.graph = {'name': 'Test Graph','crs': {'init': 'epsg:4326'},'simplified': True}
+        G.add_nodes_from(self.DiGraph.nodes(data=True))
+        G.add_edges_from([(n1,n2,0,data) for n1,n2,data in self.DiGraph.edges(data=True)])
+        return G
+            
+    def plot_graph(self, fig_height=10):
+        MDG = self.create_mdg()
+        ox.plot_graph(MDG, fig_height=fig_height)
+
+
+if __name__ == "__main__":
+    bbox = Bbox(38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
+    G = Graph.from_bound(bbox)
+    print(f"First 100 nodes: {list(G.DiGraph.nodes)[:100]}\n")
+    print(f"First 100 edges: {list(G.DiGraph.edges)[:100]}\n")
     
-    def load(self, filename):
-        """
-        Unpickle a graph object
-        
-        :param filepath: filepath to the object
-        :type filepath: string
-        :rtype: Graph
-        """
-        pass
-
-
-bbox = Bbox(38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
-
-# GB = GraphBuilder(bbox)
-
-# GB.plot_graph()
-
-
-class MapLoader:
-    def __init__(self):
-        pass
-        
-
-# bbox = (38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
-
-# bbox_graph = ox.graph_from_bbox(*bbox)
-
-# ox.plot_graph(bbox_graph, fig_height=3);
-
-name = Name("Needham, MA")
+    init_graph_node = list(G.init_graph.nodes)[30] # pink node
+    expanded_nodes = G.node_map[init_graph_node]  # yellow nodes
+    print(f"Pink node: {init_graph_node} -> Yellow nodes: {expanded_nodes}\n")
