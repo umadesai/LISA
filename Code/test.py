@@ -88,12 +88,7 @@ def calculate_ideal_route(start,end):
 def deviations_per_length(route, pathfinding_function):
     return count_deviations(route, route[0], route[-1], pathfinding_function)/(len(route)-1)
 
-
-
 # print(deviations_per_length([1,2,3,8,9,3,4],calculate_ideal_route))
-
-
-
 
 
 
@@ -174,6 +169,50 @@ def calculate_attribute_differences(path1):
 print(calculate_attribute_differences([1,2,3,8,9,3,4]))
 
 
+
+def bucketer(raw_dict, weight_dict): 
+    """
+    Bundles a bunch of raw attributes into larger buckets, which cyclists have general opinions about.
+    Some buckets are positive (signalized, separation) and others are likely negative (traffic)
+    
+    Some of the raw attributes might be big numbers (like traffic volume/speed limit)
+
+    I'm not sure if we want a binary "contains one from each category" or some weighted average of all attributes.
+
+    Current implementation is weighted average.
+
+
+    raw_dict is the edge attribute dictionary that the graph is initialized with. It has a bunch of attributes in it which we can group into larger categories.
+
+    Each attribute contributes a different weight to the category score, and these attribute:weight pairs are stored in weight_dict.
+    """ 
+
+    return {bucket_name:sum([raw_dict.get(x,0)*weight_dict[bucket_name].get(x,0) for x in weight_dict[bucket_name]]) for bucket_name in weight_dict}
+
+
+
+raw_dict = {"stop_sign":1, "traffic_light":0, "bike_lane":0, "separate_path":0, "crosswalk":1, "traffic_volume": 4, "speed_limit":35}
+
+
+weight_dict = {
+    "signalized": {"stop_sign":0.5, "traffic_light":1},
+    "separated" : {"bike_lane":0.5, "separate_path":1, "crosswalk":0.25}, # is crosswalk signal or separation? will it even show up on our graph?    
+    "traffic"   : {"traffic_volume":10, "speed_limit":1},
+    "misc"      : {}
+}
+
+print(bucketer(raw_dict, weight_dict))
+
+
+def calculate_LTS(processed_dict, more_weights):
+    """
+    For the buckets, signalized and separated make LTS lower and traffic makes LTS higher
+    """
+    weighted_LTS_components = {bucket_name:sum([processed_dict.get(x,0)*more_weights[bucket_name].get(x,0) for x in more_weights[bucket_name]]) for bucket_name in more_weights}
+
+    weighted_list = [weighted_LTS_components[x] for x in weighted_LTS_components]
+
+    return round(sum(weighted_list)/(len(weighted_list)*1.0))
 
 
 
