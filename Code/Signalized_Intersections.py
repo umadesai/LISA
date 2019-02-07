@@ -54,7 +54,7 @@ def get_signal_coords():
 
 def overlay_dfs(node_df, signalized_df, title):
     """
-    Load pink node longitudes and latitudes as pandas dataframe
+    Overlay scatterplots of two dataframes
 
     :param node_df: dataframe of osm node long/lat coordinates
     :node_df type: pandas dataframe
@@ -72,7 +72,7 @@ def overlay_dfs(node_df, signalized_df, title):
 
 def trunc(pair):
     """
-    Round floats in pair to 4 decimals places
+    Round the floats in pair to 4 decimals places
 
     :param pair: pair long/lat coordinates
     :pair type: tuple of floats
@@ -83,11 +83,9 @@ def trunc(pair):
 
 def trunc_signalized_intersections():
     """
-    Round floats in pair to 4 decimals places
+    Round signalized intersection coordinates to 4 decimal places
 
-    :param pair: pair long/lat coordinates
-    :pair type: tuple of floats
-    :rtype: tuple of floats
+    :rtype: set containing tuples of floats
     """
     signalized_intersections =  \
         get_signal_coords().to_records(index=False).tolist()
@@ -96,7 +94,7 @@ def trunc_signalized_intersections():
 
 def update_graph(G):
     """
-    Update nx graph with signalized attribute as boolean
+    Update nx graph with signalized attribute as boolean. 
 
     :param G: Graph
     :G type: Graph_Wrapper.Graph
@@ -120,8 +118,7 @@ def update_graph(G):
 if __name__ == "__main__":
 
     # make_osm_graph("Washington DC",'/home/udesai/SCOPE/LISA/Code/dc.pickle')
-
-    # plot and overlay dfs
+    
     G = load_osm_graph('dc.pickle')
     node_df = get_pink_node_coords(G)
     signalized_df = get_signal_coords()
