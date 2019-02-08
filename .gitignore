@@ -229,6 +229,9 @@ dmypy.json
 pyvenv.cfg
 pip-selfcheck.json
 
+### Visual Studio Code ###
+.vscode/
+
 ### SublimeText ###
 # Cache files for Sublime Text
 *.tmlanguage.cache
