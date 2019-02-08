@@ -286,6 +286,6 @@ tags
 # Data files
 *.csv
 *.geojson
-
+*.pickle
 
 # End of https://www.gitignore.io/api/vim,python,pycharm,sublimetext,jupyternotebook
