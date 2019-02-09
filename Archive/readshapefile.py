@@ -76,4 +76,8 @@ def plot_all_shapes(shape_base, shape_dir="shapefiles/"):
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD:Code/Read_ShapeFile.py
     make_graph("Signalized_Intersections_ACISA")
+=======
+    make_graph("./sample_data/Signalized_Intersections_ACISA")
+>>>>>>> 2e46d01116752ce720e2b7022b51dbba252c2d20:Archive/readshapefile.py
