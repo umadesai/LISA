@@ -5,6 +5,7 @@ import networkx as nx
 from shapely.geometry import Polygon, MultiPolygon
 import pickle
 import matplotlib.pyplot as plt
+from random import randint, random, randrange, choice
 
 class Name:
     def __init__(self, name: str):
@@ -178,6 +179,76 @@ class SegmentBuilder:
         segments_list = self.create_segments_list(segments_set)
         return segments_list
 
+    
+class StreetDataGenerator:
+    def random_intersection(self):
+        """
+        Creates random attributes for a intersection edge in a DiGraph. random_intersection
+        does not check for already existing attributes in the edge and will subsequently
+        overwrite any data attributes that are keyed with 'turn', 'bike_lane', 'crosswalk',
+        'separate_path', 'speed_limit', 'signalized', or 'traffic_volume'
+        """
+        return {'turn':random()*160,
+                'bike_lane':choice([True, False]),
+                'crosswalk':choice([True, False]),
+                'separate_path':choice([True, False]),
+                'speed_limit':randrange(25,36,5),
+                'signalized':choice(['stop_sign','traffic_light','no_signal']),
+                'traffic_volume':random()*1000}
+    
+
+    
+    def random_segment(self):
+        """
+        Creates random attributes for a segment edge in a DiGraph. random_segement
+        does not check for already existing attributes in the edge and will subsequently
+        overwrite any data attributes that are keyed with 'bike_lane', 'separate_path',
+        'speed_limit', or 'traffic_volume'
+        """
+        return {'bike_lane':choice([True, False]),
+                'separate_path':choice([True, False]),
+                'speed_limit':randrange(25,36,5),
+                'traffic_volume':random()*1000}
+    
+    def get_random_data(self, edge_data):
+        """
+        Calls the appropriate random data generator function by checking the
+        type of street that edge_data refers to. If the edge_data is from an intersection
+        it will call self.random_intersection(), if it is from a roadway segment it will
+        call self.random_segment()
+        """
+        if edge_data['type'] == 'intersection':
+            random_data = self.random_intersection()
+        elif edge_data['type'] == 'segment':
+            random_data = self.random_segment()
+        else:
+            raise Exception(f"Edge data({edge_data}) does not have a road 'type'")
+        return random_data
+                
+    def generate_attributes(self,  DG):
+        """
+        generate_attributes is a temporary function that allows us to fake having roadway
+        attribute data
+        
+        :param DG: networkx DiGraph
+        :returns: a dictionary containing attirbutes to be added to the DiGraph
+        """
+        attributes = {}
+        for n1, n2, edge_data in DG.edges(data=True):
+            edge = (n1 ,n2)
+            attributes[edge] = self.get_random_data(edge_data)
+        return attributes
+    
+    def add_random_attributes(self, DG):
+        """
+        Adds random roadway attribute data to a DiGraph in place
+        
+        :param DG: networkx DiGraph to be modified
+        :returns: None - modifies DiGraph in place
+        """
+        attributes = self.generate_attributes(DG)
+        nx.set_edge_attributes(DG, values=attributes)
+
 
 class GraphBuilder:
     def __init__(self, bound):
@@ -202,6 +273,7 @@ class GraphBuilder:
         self.DG = self.create_dg()
         self.node_map = self.create_node_map()
         self.convert_to_int_graph()
+        StreetDataGenerator().add_random_attributes(self.DG)
     
     def initialize_map(self, bound):
         """
@@ -295,7 +367,6 @@ class GraphBuilder:
         Helper function to the initial 
         """
         ox.plot_graph(self.init_graph, fig_height=fig_height)
-
 
 class Graph:
     """
