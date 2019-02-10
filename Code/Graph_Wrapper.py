@@ -196,8 +196,6 @@ class StreetDataGenerator:
                 'signalized':choice(['stop_sign','traffic_light','no_signal']),
                 'traffic_volume':random()*1000}
     
-
-    
     def random_segment(self):
         """
         Creates random attributes for a segment edge in a DiGraph. random_segement
