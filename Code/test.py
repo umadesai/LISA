@@ -204,6 +204,8 @@ def bucketer(raw_dict, weight_dict):
     raw_dict is the edge attribute dictionary that the graph is initialized with. It has a bunch of attributes in it which we can group into larger categories.
 
     Each attribute contributes a different weight to the category score, and these attribute:weight pairs are stored in weight_dict.
+
+    #TODO: Bucketer will currently fill in missing values with 0, which might make segments (which have less attributes than intersections) have lots of zeroes
     """ 
 
     return {bucket_name:sum([raw_dict.get(x,0)*weight_dict[bucket_name].get(x,0) for x in weight_dict[bucket_name]]) for bucket_name in weight_dict}
