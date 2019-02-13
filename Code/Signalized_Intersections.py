@@ -109,21 +109,13 @@ def update_graph(G):
             k = pink_node[0]
             print("k:", k)
             signal_data[k] = {'signalized': True}
-            # for yellow_node in G.node_map[k]:
-            #     y = yellow_node[0]
-            #     print("y: ", y)
-            #     signal_data[y] = {'signalized': True}
     nx.set_node_attributes(G=G.DiGraph, values=signal_data)
 
 
 def get_signalized_osmnx_nodes_as_df(G):
     node_data = G.DiGraph.nodes(data=True)
-    signal_coords = []
-    for node in node_data:
-        if 'signalized' in node[1]:
-            # print(node[1]['x'], node[1]['y'])
-            signal_coords.append((node[1]['x'], node[1]['y']))
-    return pd.DataFrame.from_records(signal_coords, columns=['x', 'y'])
+    coords = [(node[1]['x'], node[1]['y']) for node in node_data if 'signalized' in node[1]]
+    return pd.DataFrame.from_records(coords, columns=['x', 'y'])
 
 
 def plot_signalized_node_overlay(signalized_osmnx_nodes_df, signalized_csv_df):
