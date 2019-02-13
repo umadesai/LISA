@@ -6,6 +6,8 @@ from shapely.geometry import Polygon, MultiPolygon
 import pickle
 import matplotlib.pyplot as plt
 from random import randint, random, randrange, choice
+from scipy.spatial import KDTree
+import numpy as np
 
 class Name:
     def __init__(self, name: str):
@@ -248,6 +250,39 @@ class StreetDataGenerator:
         nx.set_edge_attributes(DG, values=attributes)
 
 
+class KDTreeWrapper:
+    """
+    Wraps the Scipy KD Tree to allow minimum distance node querying of NetworkX
+    graphs.
+    """
+    
+    def __init__(self, G):
+        """
+        Initializes a KD tree and corresponding sorted node arrays
+        """
+        self._sorted_nodes = sorted(list(G.nodes(data=True)), key=lambda n: n[0])
+        self._sorted_node_ids = [node for node,data in self._sorted_nodes]
+        self._xys = [(data['x'],data['y']) for node,data in self._sorted_nodes]
+        self._kd = KDTree(self._xys)
+    
+    def query_min_dist_nodes(self, x, k=1, distance_upper_bound=np.inf):
+        """
+        Finds the closest "k" nodes to the point "x" with maximum distance
+        "distance_upper_bound"
+        
+        :param x: point with len 2 for x and y coordinates
+        :param k: number of closest nodes to find
+        :param distance_uppder_bound: maximum distance for found node
+        
+        :returns: closest k nodes
+        """
+        distances, idxs = self._kd.query(x, k=k, distance_upper_bound=distance_upper_bound)
+        if k == 1:
+            return self._sorted_node_ids[idxs]
+        elif k > 1:
+            return [self._sorted_node_ids[i] for i in idxs]
+
+
 class GraphBuilder:
     def __init__(self, bound):
         """
@@ -272,6 +307,8 @@ class GraphBuilder:
         self.node_map = self.create_node_map()
         self.convert_to_int_graph()
         StreetDataGenerator().add_random_attributes(self.DG)
+        self.init_kd_tree = KDTreeWrapper(self.init_graph)
+        self.dg_kd_tree = KDTreeWrapper(self.DG)
     
     def initialize_map(self, bound):
         """
@@ -383,6 +420,8 @@ class Graph:
         G.DiGraph = graph_builder.DG
         G.init_graph = graph_builder.init_graph
         G.node_map = graph_builder.node_map
+        G._init_min_dist = graph_builder.init_kd_tree
+        G._dg_min_dist = graph_builder.dg_kd_tree
         return G
     
     @staticmethod
@@ -419,6 +458,31 @@ class Graph:
         MDG = self.create_mdg()
         ox.plot_graph(MDG, fig_height=fig_height)
 
+    def min_dist_init_nodes(self, x, k=1, distance_upper_bound=np.inf):
+        """
+        Finds the closest "k" nodes to the point "x" with maximum distance
+        "distance_upper_bound" in the init_map
+        
+        :param x: point with len 2 for x and y coordinates
+        :param k: number of closest nodes to find
+        :param distance_uppder_bound: maximum distance for found node
+        
+        :returns: closest k nodes in init_map
+        """
+        return self._init_min_dist.query_min_dist_nodes(x, k=k, distance_upper_bound=distance_upper_bound)
+
+    def min_dist_expd_nodes(self, x, k=1, distance_upper_bound=np.inf):
+        """
+        Finds the closest "k" nodes to the point "x" with maximum distance
+        "distance_upper_bound" in the init_map
+        
+        :param x: point with len 2 for x and y coordinates
+        :param k: number of closest nodes to find
+        :param distance_uppder_bound: maximum distance for found node
+        
+        :returns: closest k nodes in init_map
+        """
+        return self._dg_min_dist.query_min_dist_nodes(x, k=k, distance_upper_bound=distance_upper_bound)
 
 if __name__ == "__main__":
     bbox = Bbox(38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
