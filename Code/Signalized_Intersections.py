@@ -52,7 +52,7 @@ def get_signal_coords():
                        usecols=["X", "Y"])
 
 
-def overlay_dfs(node_df, signalized_df, title):
+def plot_signalized_csv_over_osmnx(osmnx_node_df, signalized_csv_df):
     """
     Overlay scatterplots of two dataframes
 
@@ -64,13 +64,13 @@ def overlay_dfs(node_df, signalized_df, title):
     :param title: title of plot
     :title type: string
     """
-    ax = node_df.plot(x="x", y="y", kind='scatter', color='b',
-                      title=title)
-    signalized_df.plot(x="X", y="Y", kind='scatter', color='g', ax=ax)
+    ax = osmnx_node_df.plot(x="x", y="y", kind='scatter', color='b',
+                            title='signalized csv over osmnx graph')
+    signalized_csv_df.plot(x="X", y="Y", kind='scatter', color='g', ax=ax)
     plt.show()
 
 
-def trunc(pair):
+def round_pair(pair):
     """
     Round the floats in pair to 4 decimals places
 
@@ -84,7 +84,7 @@ def trunc(pair):
     return (round(pair[0], 4), round(pair[1], 4))
 
 
-def trunc_signalized_intersections():
+def round_signalized_intersections():
     """
     Round signalized intersection coordinates to 4 decimal places
 
@@ -92,7 +92,7 @@ def trunc_signalized_intersections():
     """
     signalized_intersections =  \
         get_signal_coords().to_records(index=False).tolist()
-    return {trunc(pair) for pair in signalized_intersections}
+    return {round_pair(pair) for pair in signalized_intersections}
 
 
 def update_graph(G):
@@ -101,21 +101,43 @@ def update_graph(G):
 
     :param G: Graph
     :G type: Graph_Wrapper.Graph
-    :rtype: int
     """
-    trunc_signals = trunc_signalized_intersections()
-    count = 0
+    rounded_signals = round_signalized_intersections()
     signal_data = {}
     for pink_node in G.DiGraph.nodes(data=True):
-        if trunc((pink_node[1]['x'], pink_node[1]['y'])) in trunc_signals:
+        if round_pair((pink_node[1]['x'], pink_node[1]['y'])) in rounded_signals:
             k = pink_node[0]
+            print("k:", k)
             signal_data[k] = {'signalized': True}
-            # print('Found a signalized intersection')
-            count += 1
-            # for yellow_node in G.node_map[pink_node]:
-            #     signal_data[yellow_node[0]] = {'signalized': True}
+            # for yellow_node in G.node_map[k]:
+            #     y = yellow_node[0]
+            #     print("y: ", y)
+            #     signal_data[y] = {'signalized': True}
     nx.set_node_attributes(G=G.DiGraph, values=signal_data)
-    return count
+
+
+def get_signalized_osmnx_nodes_as_df(G):
+    node_data = G.DiGraph.nodes(data=True)
+    signal_coords = []
+    for node in node_data:
+        if 'signalized' in node[1]:
+            # print(node[1]['x'], node[1]['y'])
+            signal_coords.append((node[1]['x'], node[1]['y']))
+    return pd.DataFrame.from_records(signal_coords, columns=['x', 'y'])
+
+
+def plot_signalized_node_overlay(signalized_osmnx_nodes_df, signalized_csv_df):
+    ax = signalized_csv_df.plot(x="X", y="Y", kind='scatter', color='b',
+                                title="signalized csv nodes in vlue, signalized osmnx nodes overlayed in green")
+    signalized_osmnx_nodes_df.plot(x="x", y="y", kind='scatter', color='g', ax=ax)
+    plt.show()
+
+
+def plot_updated_osmnx_graph(signalized_osmnx_nodes_df, osmnx_node_df):
+    ax = osmnx_node_df.plot(x="x", y="y", kind='scatter', color='b',
+                            title="full osmnx graph in blue, signalized=true overlayed in green")
+    signalized_osmnx_nodes_df.plot(x="x", y="y", kind='scatter', color='g', ax=ax)
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -123,7 +145,10 @@ if __name__ == "__main__":
     # make_osm_graph("Washington DC",'/home/udesai/SCOPE/LISA/Code/dc.pickle')
 
     G = load_osm_graph('dc.pickle')
-    node_df = get_pink_node_coords(G)
-    signalized_df = get_signal_coords()
-    overlay_dfs(node_df, signalized_df, "Signalized Intersections in DC")
+    osmnx_node_df = get_pink_node_coords(G)
+    signalized_csv_df = get_signal_coords()
+    plot_signalized_csv_over_osmnx(osmnx_node_df, signalized_csv_df)
     update_graph(G)
+    signalized_osmnx_nodes_df = get_signalized_osmnx_nodes_as_df(G)
+    plot_updated_osmnx_graph(signalized_osmnx_nodes_df, osmnx_node_df)
+    plot_signalized_node_overlay(signalized_osmnx_nodes_df, signalized_csv_df)
