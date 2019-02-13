@@ -7,6 +7,10 @@ import pickle
 import matplotlib.pyplot as plt
 from random import randint, random, randrange, choice
 
+from matplotlib.lines import Line2D
+# For custom legends
+
+
 class Name:
     def __init__(self, name: str):
         self.name = name
@@ -82,6 +86,7 @@ class NodesGeometry:
                 nodes_xy[segment[0]] = nodes_xy[segment[0]] + ((unit_vec * dist) + (perp_vec * dist / 2))
                 nodes_xy[segment[1]] = nodes_xy[segment[1]] - ((unit_vec * dist) - (perp_vec * dist / 2))
             else:
+                unit_vec = NodesGeometry.segment_unit_vec(nodes_xy, segment)
                 nodes_xy[segment[0]] = nodes_xy[segment[0]] + (unit_vec * dist)
                 nodes_xy[segment[1]] = nodes_xy[segment[1]] - (unit_vec * dist)
     
@@ -194,7 +199,8 @@ class StreetDataGenerator:
                 'separate_path':choice([True, False]),
                 'speed_limit':randrange(25,36,5),
                 'signalized':choice(['stop_sign','traffic_light','no_signal']),
-                'traffic_volume':random()*1000}
+                'traffic_volume':random()*1000,
+                'length':0}
     
     def random_segment(self):
         """
@@ -206,7 +212,8 @@ class StreetDataGenerator:
         return {'bike_lane':choice([True, False]),
                 'separate_path':choice([True, False]),
                 'speed_limit':randrange(25,36,5),
-                'traffic_volume':random()*1000}
+                'traffic_volume':random()*1000,
+                'length':random()*100}
     
     def get_random_data(self, edge_data):
         """
@@ -285,7 +292,7 @@ class GraphBuilder:
         if type(bound) is Name:
             init_graph = ox.graph_from_place(bound.official_name)
         elif type(bound) is Bbox:
-            init_graph = ox.graph_from_bbox(*bbox)
+            init_graph = ox.graph_from_bbox(*bound)
         else:
             raise RuntimeError("Could not create graph from specified bound")
         return init_graph
@@ -419,13 +426,108 @@ class Graph:
         MDG = self.create_mdg()
         ox.plot_graph(MDG, fig_height=fig_height)
 
+    def plot_simple_graph(self, fig_height=10):
+        ox.plot_graph(self.init_graph, fig_height = fig_height)
+
+    def plot_routes(self, routes, fig_height=10): 
+        """
+        Create_mdg() appears to be nondeterministic.
+        routes is a list of routes.
+            Each route is a list of nodes traversed in order.
+
+        routes = None picks two routes of length 1 and plots those.
+        
+
+        """
+        MDG = self.create_mdg()
+        if routes:
+            ox.plot_graph_routes(MDG, routes, fig_height=fig_height)
+        else:
+            first_node_list = [list(MDG.edges)[0][0], list(MDG.edges)[0][1]]
+            second_node_list = [list(MDG.edges)[1][0], list(MDG.edges)[1][1]]
+
+            routes = [first_node_list, second_node_list]
+            ox.plot_graph_routes(MDG, routes, fig_height=fig_height)
+
+    def highlight_graph(self, edge_filter_function, node_filter_function, edge_legend, node_legend, title):
+        """
+        edge_filter_function and node_filter_function take in a dict and return a color.
+
+        something like:
+
+        edge_filter_function = lambda x: 'r' if x.get("traffic_volume",0)>200 else '#0F0F0F'
+
+        node_filter_function = lambda z: 'b' if z.get("y")>-77.098 else '#0F0F0F'
+
+        """
+
+        G = self.create_mdg()
+        ec = '#0F0F0F'
+        nc = '#0F0F0F'
+
+        if edge_filter_function:
+            ec = [edge_filter_function(data) for u, v, data in G.edges(data=True)]
+        if node_filter_function:
+            nc = [node_filter_function(data) for u, data in G.nodes(data=True)]
+
+        fig, ax = ox.plot.plot_graph(G, show=False, close=False, edge_color=ec, node_color=nc)
+
+
+        legend_elements = []
+        if edge_legend:
+            for edge_label in edge_legend:
+                legend_elements.append(Line2D([0], [0], color = edge_legend[edge_label], lw=3, label = edge_label))
+
+        if node_legend:
+            for node_label in node_legend:
+                legend_elements.append(Line2D([0], [0], marker='o', color = node_legend[node_label], label = node_label,
+                              markerfacecolor=node_legend[node_label], markersize=7))
+
+
+        ax.legend(handles=legend_elements)
+
+        plt.title(title)
+
+
+        plt.show()
+
+
+
 
 if __name__ == "__main__":
     bbox = Bbox(38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
     G = Graph.from_bound(bbox)
-    print(f"First 100 nodes: {list(G.DiGraph.nodes)[:100]}\n")
-    print(f"First 100 edges: {list(G.DiGraph.edges)[:100]}\n")
+    # print(f"First 100 nodes: {list(G.DiGraph.nodes)[:100]}\n")
+    # print(f"First 100 edges: {list(G.DiGraph.edges)[:100]}\n")
+
     
     init_graph_node = list(G.init_graph.nodes)[30] # pink node
     expanded_nodes = G.node_map[init_graph_node]  # yellow nodes
     print(f"Pink node: {init_graph_node} -> Yellow nodes: {expanded_nodes}\n")
+
+
+
+    def edge_filter(data):
+        if data.get("separate_path"):
+            return 'r'
+        elif data.get("crosswalk"):
+            return 'm'
+        elif data.get("bike_lane"):
+            return 'g'
+        else:
+            return "#1F1F1F"
+
+
+    def node_filter(data):
+        if data.get("x")>-77.101:
+            return 'r'
+        else:
+            return "#1F1F1F"
+
+
+    edge_legend = {"Separate path":'r', "Has crosswalk":'m', "Has bike lane":'g'}
+    node_legend = {"x > -77.01": 'r', "x <= -77.01":'#1F1F1F'}
+
+
+    G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, edge_legend = edge_legend, node_legend = node_legend, title = "Test title")
+    G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, edge_legend = None, node_legend = node_legend, title = "Test title")
