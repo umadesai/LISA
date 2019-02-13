@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from Graph_Wrapper import Graph, Name
 
 
-def make_osm_graph(name, filepath):
+def make_osmnx_graph(name, filepath):
     """
     Fetch OSM from name and pickle graph object to a file
 
@@ -17,7 +17,7 @@ def make_osm_graph(name, filepath):
     G.save(filepath)
 
 
-def load_osm_graph(filepath):
+def load_osmnx_graph(filepath):
     """
     Unpickle the osm graph object
 
@@ -29,7 +29,7 @@ def load_osm_graph(filepath):
     return pickle.load(pickle_in)
 
 
-def get_pink_node_coords(G):
+def get_osmnx_nodes(G):
     """
     Load pink node longitudes and latitudes as pandas dataframe
 
@@ -42,7 +42,7 @@ def get_pink_node_coords(G):
     return pd.DataFrame.from_records(coords, columns=['x', 'y'])
 
 
-def get_signal_coords():
+def get_signalized_csv_coords():
     """
     Load Signalized Intersections csv as pandas dataframe
 
@@ -91,7 +91,7 @@ def round_signalized_intersections():
     :rtype: set containing tuples of floats
     """
     signalized_intersections =  \
-        get_signal_coords().to_records(index=False).tolist()
+        get_signalized_csv_coords().to_records(index=False).tolist()
     return {round_pair(pair) for pair in signalized_intersections}
 
 
@@ -101,6 +101,7 @@ def update_graph(G):
 
     :param G: Graph
     :G type: Graph_Wrapper.Graph
+    :rtype: dictionary
     """
     rounded_signals = round_signalized_intersections()
     signal_data = {}
@@ -110,6 +111,7 @@ def update_graph(G):
             print("k:", k)
             signal_data[k] = {'signalized': True}
     nx.set_node_attributes(G=G.DiGraph, values=signal_data)
+    return signal_data
 
 
 def get_signalized_osmnx_nodes_as_df(G):
@@ -134,11 +136,11 @@ def plot_updated_osmnx_graph(signalized_osmnx_nodes_df, osmnx_node_df):
 
 if __name__ == "__main__":
 
-    # make_osm_graph("Washington DC",'/home/udesai/SCOPE/LISA/Code/dc.pickle')
+    # make_osmnx_graph("Washington DC",'/home/udesai/SCOPE/LISA/Code/dc.pickle')
 
-    G = load_osm_graph('dc.pickle')
-    osmnx_node_df = get_pink_node_coords(G)
-    signalized_csv_df = get_signal_coords()
+    G = load_osmnx_graph('dc.pickle')
+    osmnx_node_df = get_osmnx_nodes(G)
+    signalized_csv_df = get_signalized_csv_coords()
     plot_signalized_csv_over_osmnx(osmnx_node_df, signalized_csv_df)
     update_graph(G)
     signalized_osmnx_nodes_df = get_signalized_osmnx_nodes_as_df(G)

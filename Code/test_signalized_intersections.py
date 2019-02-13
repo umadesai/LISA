@@ -1,5 +1,6 @@
-from Signalized_Intersections import load_osm_graph, update_graph, \
-    get_signal_coords, round_pair, get_pink_node_coords
+from Signalized_Intersections import load_osmnx_graph, update_graph, \
+    get_signalized_csv_coords, round_pair, get_osmnx_nodes, \
+    get_signalized_osmnx_nodes_as_df
 import pytest
 
 
@@ -23,17 +24,17 @@ def G():
     '''
     Returns osmnx graph of DC
     '''
-    return load_osm_graph('dc.pickle')
+    return load_osmnx_graph('dc.pickle')
 
 
-def test_get_signal_coords():
-    assert len(get_signal_coords()) > 1400
+def test_get_signalized_csv_coords():
+    assert len(get_signalized_csv_coords()) > 1400
 
 
-def test_get_pink_node_coords(G):
-    assert len(get_pink_node_coords(G)) > 3800
+def test_get_osmnx_nodes(G):
+    assert len(get_osmnx_nodes(G)) > 3800
 
 
 def test_update_graph(G):
-    update_count = update_graph(G)
-    assert update_count > 1400
+    update_dictionary = update_graph(G)
+    assert len(update_dictionary) > 1400
