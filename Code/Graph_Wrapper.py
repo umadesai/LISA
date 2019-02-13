@@ -393,9 +393,6 @@ class GraphBuilder:
         self.DG = G
         
         self.node_map = {k:[node_to_int[n] for n in ns] for k,ns in self.node_map.items()}
-    
-    def plot_graph(self, fig_height=10):
-        ox.plot_graph(self.G, fig_height=fig_height)
         
     def plot_map(self, fig_height=10):
         """
@@ -446,7 +443,7 @@ class Graph:
         """
         with open(filepath, 'wb') as f:
             pickle.dump(self, f)
-            
+
     def create_mdg(self):
         G = nx.MultiDiGraph()
         G.graph = {'name': 'Test Graph','crs': {'init': 'epsg:4326'},'simplified': True}
