@@ -52,24 +52,6 @@ def get_signalized_csv_coords():
                        usecols=["X", "Y"])
 
 
-def plot_signalized_csv_over_osmnx(osmnx_node_df, signalized_csv_df):
-    """
-    Overlay scatterplots of two dataframes
-
-    :param node_df: dataframe of osm node long/lat coordinates
-    :node_df type: pandas dataframe
-    :param signalized_df: dataframe of signalized intersection long/lat
-     coordinates
-    :signalized_df type: pandas dataframe
-    :param title: title of plot
-    :title type: string
-    """
-    ax = osmnx_node_df.plot(x="x", y="y", kind='scatter', color='b',
-                            title='signalized csv over osmnx graph')
-    signalized_csv_df.plot(x="X", y="Y", kind='scatter', color='g', ax=ax)
-    plt.show()
-
-
 def round_pair(pair):
     """
     Round the floats in pair to 4 decimals places
@@ -108,7 +90,6 @@ def update_graph(G):
     for pink_node in G.DiGraph.nodes(data=True):
         if round_pair((pink_node[1]['x'], pink_node[1]['y'])) in rounded_signals:
             k = pink_node[0]
-            print("k:", k)
             signal_data[k] = {'signalized': True}
     nx.set_node_attributes(G=G.DiGraph, values=signal_data)
     return signal_data
@@ -116,21 +97,26 @@ def update_graph(G):
 
 def get_signalized_osmnx_nodes_as_df(G):
     node_data = G.DiGraph.nodes(data=True)
-    coords = [(node[1]['x'], node[1]['y']) for node in node_data if 'signalized' in node[1]]
+    coords = [(node[1]['x'], node[1]['y'])
+              for node in node_data if 'signalized' in node[1]]
     return pd.DataFrame.from_records(coords, columns=['x', 'y'])
 
 
-def plot_signalized_node_overlay(signalized_osmnx_nodes_df, signalized_csv_df):
-    ax = signalized_csv_df.plot(x="X", y="Y", kind='scatter', color='b',
-                                title="signalized csv nodes in vlue, signalized osmnx nodes overlayed in green")
-    signalized_osmnx_nodes_df.plot(x="x", y="y", kind='scatter', color='g', ax=ax)
-    plt.show()
-
-
-def plot_updated_osmnx_graph(signalized_osmnx_nodes_df, osmnx_node_df):
-    ax = osmnx_node_df.plot(x="x", y="y", kind='scatter', color='b',
-                            title="full osmnx graph in blue, signalized=true overlayed in green")
-    signalized_osmnx_nodes_df.plot(x="x", y="y", kind='scatter', color='g', ax=ax)
+def plot_overlay(df1, df2, x1, y1, x2, y2, title):
+    """
+    Overlay scatterplots of two dataframes
+    :param df1: pandas dataframe
+    :param df2: pandas dataframe
+    :param x1: x column name of df 1
+    :param y1: y column name of df 1
+    :param x2: x column name of df 2
+    :param y2: y column name of df 2
+    :param title: title of plot
+    """
+    ax = df1.plot(x=x1, y=y1, kind='scatter', color='b',
+                  title=title)
+    df2.plot(x=x2, y=y2, kind='scatter', color='g',
+             ax=ax)
     plt.show()
 
 
@@ -141,8 +127,15 @@ if __name__ == "__main__":
     G = load_osmnx_graph('dc.pickle')
     osmnx_node_df = get_osmnx_nodes(G)
     signalized_csv_df = get_signalized_csv_coords()
-    plot_signalized_csv_over_osmnx(osmnx_node_df, signalized_csv_df)
+    # plot signalized csv nodes over osmnx nodes
+    plot_overlay(osmnx_node_df, signalized_csv_df, 'x', 'y',
+                 'X', 'Y', 'signalized csv over osmnx graph')
+    # update osmnx graph attributes for signalization
     update_graph(G)
+    # plot signalized osmnx graph nodes over full osmnx graph
     signalized_osmnx_nodes_df = get_signalized_osmnx_nodes_as_df(G)
-    plot_updated_osmnx_graph(signalized_osmnx_nodes_df, osmnx_node_df)
-    plot_signalized_node_overlay(signalized_osmnx_nodes_df, signalized_csv_df)
+    plot_overlay(osmnx_node_df, signalized_osmnx_nodes_df, 'x', 'y', 'x', 'y',
+                 "full osmnx graph in blue, signalized=true overlayed in green")
+    # plot signalized osmnx nodes over signalized csv nodes
+    plot_overlay(signalized_csv_df, signalized_osmnx_nodes_df, 'X', 'Y', 'x', 'y',
+                 "signalized csv nodes in blue, signalized osmnx nodes overlayed in green")

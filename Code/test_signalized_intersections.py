@@ -1,6 +1,5 @@
 from Signalized_Intersections import load_osmnx_graph, update_graph, \
-    get_signalized_csv_coords, round_pair, get_osmnx_nodes, \
-    get_signalized_osmnx_nodes_as_df
+    get_signalized_csv_coords, round_pair, get_osmnx_nodes
 import pytest
 
 
