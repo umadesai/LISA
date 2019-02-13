@@ -285,7 +285,7 @@ class GraphBuilder:
         if type(bound) is Name:
             init_graph = ox.graph_from_place(bound.official_name)
         elif type(bound) is Bbox:
-            init_graph = ox.graph_from_bbox(*bbox)
+            init_graph = ox.graph_from_bbox(*bound)
         else:
             raise RuntimeError("Could not create graph from specified bound")
         return init_graph
