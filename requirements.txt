@@ -57,6 +57,7 @@ pyparsing==2.2.2
 pyproj==1.9.5.1
 PySAL==1.14.4.post2
 PySocks==1.6.8
+pytest==4.2.0
 python-dateutil==2.7.3
 pytz==2018.5
 pyzmq==17.1.2

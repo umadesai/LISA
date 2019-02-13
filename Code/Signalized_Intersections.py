@@ -78,6 +78,9 @@ def trunc(pair):
     :pair type: tuple of floats
     :rtype: tuple of floats
     """
+    if not isinstance(pair, tuple) or not isinstance(pair[0], float) \
+            or not isinstance(pair[1], float):
+        raise TypeError('Please provide a tuple of floats')
     return (round(pair[0], 4), round(pair[1], 4))
 
 
@@ -94,7 +97,7 @@ def trunc_signalized_intersections():
 
 def update_graph(G):
     """
-    Update nx graph with signalized attribute as boolean. 
+    Update nx graph with signalized attribute as boolean.
 
     :param G: Graph
     :G type: Graph_Wrapper.Graph
@@ -118,7 +121,7 @@ def update_graph(G):
 if __name__ == "__main__":
 
     # make_osm_graph("Washington DC",'/home/udesai/SCOPE/LISA/Code/dc.pickle')
-    
+
     G = load_osm_graph('dc.pickle')
     node_df = get_pink_node_coords(G)
     signalized_df = get_signal_coords()
