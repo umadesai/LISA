@@ -449,7 +449,24 @@ class Graph:
             routes = [first_node_list, second_node_list]
             ox.plot_graph_routes(MDG, routes, fig_height=fig_height)
 
-    def highlight_graph(self, edge_filter_function, node_filter_function, edge_legend, node_legend, title):
+
+
+    def create_legend(self, edge_legend, node_legend):
+        legend_elements = []
+        if edge_legend:
+            for edge_label in edge_legend:
+                legend_elements.append(Line2D([0], [0], color = edge_legend[edge_label], lw=3, label = edge_label))
+
+        if node_legend:
+            for node_label in node_legend:
+                legend_elements.append(Line2D([0], [0], marker='o', color = node_legend[node_label], label = node_label,
+                              markerfacecolor=node_legend[node_label], markersize=7))
+        return legend_elements        
+
+
+
+
+    def highlight_graph(self, edge_filter_function, node_filter_function, legend_elements, title):
         """
         edge_filter_function and node_filter_function take in a dict and return a color.
 
@@ -473,22 +490,11 @@ class Graph:
         fig, ax = ox.plot.plot_graph(G, show=False, close=False, edge_color=ec, node_color=nc)
 
 
-        legend_elements = []
-        if edge_legend:
-            for edge_label in edge_legend:
-                legend_elements.append(Line2D([0], [0], color = edge_legend[edge_label], lw=3, label = edge_label))
-
-        if node_legend:
-            for node_label in node_legend:
-                legend_elements.append(Line2D([0], [0], marker='o', color = node_legend[node_label], label = node_label,
-                              markerfacecolor=node_legend[node_label], markersize=7))
-
 
         ax.legend(handles=legend_elements)
+        return ax
 
-        plt.title(title)
-
-
+    def show_graph(self, fig, ax):
         plt.show()
 
 
@@ -528,6 +534,13 @@ if __name__ == "__main__":
     edge_legend = {"Separate path":'r', "Has crosswalk":'m', "Has bike lane":'g'}
     node_legend = {"x > -77.01": 'r', "x <= -77.01":'#1F1F1F'}
 
+    edge_and_nodes = G.create_legend(edge_legend = edge_legend, node_legend = node_legend)
+    only_nodes = G.create_legend(edge_legend = None, node_legend = node_legend)
 
-    G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, edge_legend = edge_legend, node_legend = node_legend, title = "Test title")
-    G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, edge_legend = None, node_legend = node_legend, title = "Test title")
+
+    ax1 = G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, legend_elements = edge_and_nodes, title = "Test title")
+    ax2 = G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, legend_elements = only_nodes, title = "Test title")
+
+    ax1.scatter([-77.102, -77.103], [38.88,38.881], color='b')
+
+    plt.show()
