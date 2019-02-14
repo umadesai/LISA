@@ -31,7 +31,7 @@ def load_osmnx_graph(filepath):
 
 def get_osmnx_nodes(G):
     """
-    Load pink node longitudes and latitudes as pandas dataframe
+    Load osmnx longitudes and latitudes as pandas dataframe
 
     :param G: Graph
     :G type: Graph_Wrapper.Graph
@@ -44,7 +44,7 @@ def get_osmnx_nodes(G):
 
 def get_signalized_csv_coords():
     """
-    Load Signalized Intersections csv as pandas dataframe
+    Load signalized intersections csv as pandas dataframe
 
     :rtype: pandas dataframe
     """
@@ -70,7 +70,7 @@ def round_signalized_intersections():
     """
     Round signalized intersection coordinates to 4 decimal places
 
-    :rtype: set containing tuples of floats
+    :rtype: set of tuples of floats
     """
     signalized_intersections =  \
         get_signalized_csv_coords().to_records(index=False).tolist()
@@ -87,15 +87,21 @@ def update_graph(G):
     """
     rounded_signals = round_signalized_intersections()
     signal_data = {}
-    for pink_node in G.DiGraph.nodes(data=True):
-        if round_pair((pink_node[1]['x'], pink_node[1]['y'])) in rounded_signals:
-            k = pink_node[0]
-            signal_data[k] = {'signalized': True}
+    for node in G.DiGraph.nodes(data=True):
+        if round_pair((node[1]['x'], node[1]['y'])) in rounded_signals:
+            signal_data[node[0]] = {'signalized': True}
     nx.set_node_attributes(G=G.DiGraph, values=signal_data)
     return signal_data
 
 
 def get_signalized_osmnx_nodes_as_df(G):
+    """
+    Load longitudes and latitudes of signalized osmnx nodes as pandas dataframe
+
+    :param G: Graph
+    :G type: Graph_Wrapper.Graph
+    :rtype: pandas dataframe
+    """
     node_data = G.DiGraph.nodes(data=True)
     coords = [(node[1]['x'], node[1]['y'])
               for node in node_data if 'signalized' in node[1]]
@@ -122,20 +128,22 @@ def plot_overlay(df1, df2, x1, y1, x2, y2, title):
 
 if __name__ == "__main__":
 
-    # make_osmnx_graph("Washington DC",'/home/udesai/SCOPE/LISA/Code/dc.pickle')
+    # make_osmnx_graph("Washington DC",
+    #                  '/home/udesai/SCOPE/LISA/Code/dc.pickle')
 
     G = load_osmnx_graph('dc.pickle')
     osmnx_node_df = get_osmnx_nodes(G)
     signalized_csv_df = get_signalized_csv_coords()
     # plot signalized csv nodes over osmnx nodes
     plot_overlay(osmnx_node_df, signalized_csv_df, 'x', 'y',
-                 'X', 'Y', 'signalized csv over osmnx graph')
+                 'X', 'Y', 'signalized csv nodes over osmnx graph')
     # update osmnx graph attributes for signalization
-    update_graph(G)
+    signal = update_graph(G)
     # plot signalized osmnx graph nodes over full osmnx graph
     signalized_osmnx_nodes_df = get_signalized_osmnx_nodes_as_df(G)
     plot_overlay(osmnx_node_df, signalized_osmnx_nodes_df, 'x', 'y', 'x', 'y',
-                 "full osmnx graph in blue, signalized=true overlayed in green")
+                 'blue, all osmnx nodes, green signalized osmnx nodes')
     # plot signalized osmnx nodes over signalized csv nodes
-    plot_overlay(signalized_csv_df, signalized_osmnx_nodes_df, 'X', 'Y', 'x', 'y',
-                 "signalized csv nodes in blue, signalized osmnx nodes overlayed in green")
+    plot_overlay(signalized_csv_df, signalized_osmnx_nodes_df,
+                 'X', 'Y', 'x', 'y',
+                 'blue signalized csv nodes, green signalized osmnx nodes')
