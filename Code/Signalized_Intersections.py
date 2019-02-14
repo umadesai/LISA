@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from Graph_Wrapper import Graph, Name
 
 
-def make_osm_graph(name, filepath):
+def make_osmnx_graph(name, filepath):
     """
     Fetch OSM from name and pickle graph object to a file
 
@@ -17,7 +17,7 @@ def make_osm_graph(name, filepath):
     G.save(filepath)
 
 
-def load_osm_graph(filepath):
+def load_osmnx_graph(filepath):
     """
     Unpickle the osm graph object
 
@@ -29,9 +29,9 @@ def load_osm_graph(filepath):
     return pickle.load(pickle_in)
 
 
-def get_pink_node_coords(G):
+def get_osmnx_nodes(G):
     """
-    Load pink node longitudes and latitudes as pandas dataframe
+    Load osmnx longitudes and latitudes as pandas dataframe
 
     :param G: Graph
     :G type: Graph_Wrapper.Graph
@@ -42,9 +42,9 @@ def get_pink_node_coords(G):
     return pd.DataFrame.from_records(coords, columns=['x', 'y'])
 
 
-def get_signal_coords():
+def get_signalized_csv_coords():
     """
-    Load Signalized Intersections csv as pandas dataframe
+    Load signalized intersections csv as pandas dataframe
 
     :rtype: pandas dataframe
     """
@@ -52,25 +52,7 @@ def get_signal_coords():
                        usecols=["X", "Y"])
 
 
-def overlay_dfs(node_df, signalized_df, title):
-    """
-    Overlay scatterplots of two dataframes
-
-    :param node_df: dataframe of osm node long/lat coordinates
-    :node_df type: pandas dataframe
-    :param signalized_df: dataframe of signalized intersection long/lat
-     coordinates
-    :signalized_df type: pandas dataframe
-    :param title: title of plot
-    :title type: string
-    """
-    ax = node_df.plot(x="x", y="y", kind='scatter', color='b',
-                      title=title)
-    signalized_df.plot(x="X", y="Y", kind='scatter', color='g', ax=ax)
-    plt.show()
-
-
-def trunc(pair):
+def round_pair(pair):
     """
     Round the floats in pair to 4 decimals places
 
@@ -84,15 +66,15 @@ def trunc(pair):
     return (round(pair[0], 4), round(pair[1], 4))
 
 
-def trunc_signalized_intersections():
+def round_signalized_intersections():
     """
     Round signalized intersection coordinates to 4 decimal places
 
-    :rtype: set containing tuples of floats
+    :rtype: set of tuples of floats
     """
     signalized_intersections =  \
-        get_signal_coords().to_records(index=False).tolist()
-    return {trunc(pair) for pair in signalized_intersections}
+        get_signalized_csv_coords().to_records(index=False).tolist()
+    return {round_pair(pair) for pair in signalized_intersections}
 
 
 def update_graph(G):
@@ -101,29 +83,67 @@ def update_graph(G):
 
     :param G: Graph
     :G type: Graph_Wrapper.Graph
-    :rtype: int
+    :rtype: dictionary
     """
-    trunc_signals = trunc_signalized_intersections()
-    count = 0
+    rounded_signals = round_signalized_intersections()
     signal_data = {}
-    for pink_node in G.DiGraph.nodes(data=True):
-        if trunc((pink_node[1]['x'], pink_node[1]['y'])) in trunc_signals:
-            k = pink_node[0]
-            signal_data[k] = {'signalized': True}
-            # print('Found a signalized intersection')
-            count += 1
-            # for yellow_node in G.node_map[pink_node]:
-            #     signal_data[yellow_node[0]] = {'signalized': True}
+    for node in G.DiGraph.nodes(data=True):
+        if round_pair((node[1]['x'], node[1]['y'])) in rounded_signals:
+            signal_data[node[0]] = {'signalized': True}
     nx.set_node_attributes(G=G.DiGraph, values=signal_data)
-    return count
+    return signal_data
+
+
+def get_signalized_osmnx_nodes_as_df(G):
+    """
+    Load longitudes and latitudes of signalized osmnx nodes as pandas dataframe
+
+    :param G: Graph
+    :G type: Graph_Wrapper.Graph
+    :rtype: pandas dataframe
+    """
+    node_data = G.DiGraph.nodes(data=True)
+    coords = [(node[1]['x'], node[1]['y'])
+              for node in node_data if 'signalized' in node[1]]
+    return pd.DataFrame.from_records(coords, columns=['x', 'y'])
+
+
+def plot_overlay(df1, df2, x1, y1, x2, y2, title):
+    """
+    Overlay scatterplots of two dataframes
+    :param df1: pandas dataframe
+    :param df2: pandas dataframe
+    :param x1: x column name of df 1
+    :param y1: y column name of df 1
+    :param x2: x column name of df 2
+    :param y2: y column name of df 2
+    :param title: title of plot
+    """
+    ax = df1.plot(x=x1, y=y1, kind='scatter', color='b',
+                  title=title)
+    df2.plot(x=x2, y=y2, kind='scatter', color='g',
+             ax=ax)
+    plt.show()
 
 
 if __name__ == "__main__":
 
-    # make_osm_graph("Washington DC",'/home/udesai/SCOPE/LISA/Code/dc.pickle')
+    # make_osmnx_graph("Washington DC",
+    #                  '/home/udesai/SCOPE/LISA/Code/dc.pickle')
 
-    G = load_osm_graph('dc.pickle')
-    node_df = get_pink_node_coords(G)
-    signalized_df = get_signal_coords()
-    overlay_dfs(node_df, signalized_df, "Signalized Intersections in DC")
-    update_graph(G)
+    G = load_osmnx_graph('dc.pickle')
+    osmnx_node_df = get_osmnx_nodes(G)
+    signalized_csv_df = get_signalized_csv_coords()
+    # plot signalized csv nodes over osmnx nodes
+    plot_overlay(osmnx_node_df, signalized_csv_df, 'x', 'y',
+                 'X', 'Y', 'signalized csv nodes over osmnx graph')
+    # update osmnx graph attributes for signalization
+    signal = update_graph(G)
+    # plot signalized osmnx graph nodes over full osmnx graph
+    signalized_osmnx_nodes_df = get_signalized_osmnx_nodes_as_df(G)
+    plot_overlay(osmnx_node_df, signalized_osmnx_nodes_df, 'x', 'y', 'x', 'y',
+                 'blue, all osmnx nodes, green signalized osmnx nodes')
+    # plot signalized osmnx nodes over signalized csv nodes
+    plot_overlay(signalized_csv_df, signalized_osmnx_nodes_df,
+                 'X', 'Y', 'x', 'y',
+                 'blue signalized csv nodes, green signalized osmnx nodes')
