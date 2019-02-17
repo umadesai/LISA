@@ -460,7 +460,7 @@ class Graph:
         if node_legend:
             for node_label in node_legend:
                 legend_elements.append(Line2D([0], [0], marker='o', color = node_legend[node_label], label = node_label,
-                              markerfacecolor=node_legend[node_label], markersize=7))
+                              markerfacecolor=node_legend[node_label], markersize=8))
         return legend_elements        
 
 
@@ -497,13 +497,28 @@ class Graph:
     def show_graph(self, fig, ax):
         plt.show()
 
+    def create_pos(self):
+        pos = {}
+        for tup in self.DiGraph.nodes(data=True):
+            node = tup[0]
+            xy_dict = tup[1]
+            pos[node] = (xy_dict["x"], xy_dict["y"])
+        return pos
+
+    def create_edge_labels(self, attribute_list):
+        edge_labels = {(u, v): {attribute: d.get(attribute) for attribute in attribute_list} for u, v, d in self.DiGraph.edges(data=True)}
+        return edge_labels
+
+
 
 
 
 if __name__ == "__main__":
     bbox = Bbox(38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
     G = Graph.from_bound(bbox)
-    # print(f"First 100 nodes: {list(G.DiGraph.nodes)[:100]}\n")
+    # print([list(G.DiGraph.nodes(data=True))[i] for i in range(10)])
+
+    # print(f"First 100 nodes: {list(G.DiGraph.nodes(data=True))[:100]}\n")
     # print(f"First 100 edges: {list(G.DiGraph.edges)[:100]}\n")
 
     
@@ -539,8 +554,14 @@ if __name__ == "__main__":
 
 
     ax1 = G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, legend_elements = edge_and_nodes, title = "Test title")
-    ax2 = G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, legend_elements = only_nodes, title = "Test title")
+    # ax2 = G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, legend_elements = only_nodes, title = "Test title")
 
     ax1.scatter([-77.102, -77.103], [38.88,38.881], color='b')
+
+    pos = G.create_pos()
+
+    edge_labels = G.create_edge_labels(["separate_path", "crosswalk"])
+
+    nx.draw_networkx_edge_labels(G.DiGraph, pos, ax = ax1, edge_labels = edge_labels, alpha = 0.5, rotate = False)
 
     plt.show()
