@@ -34,7 +34,8 @@ def get_candidates(gps_point, kd):
     """
     Grab 2 closest nodes to gps point
     """
-    return kd.query_min_dist_nodes(gps_point, k=2)
+    nodes, distances = kd.query_min_dist_nodes(gps_point, k=2)
+    return nodes
 
 
 def calculate_dist(p0, p1):
