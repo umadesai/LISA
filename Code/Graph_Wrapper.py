@@ -5,8 +5,6 @@ import networkx as nx
 from shapely.geometry import Polygon, MultiPolygon
 import pickle
 from random import random, randrange, choice
-#
-#
 from scipy.spatial import KDTree
 
 

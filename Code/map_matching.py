@@ -1,4 +1,6 @@
 import math
+import numpy as np
+import networkx as nx
 import geopandas as gpd
 from Graph_Wrapper import KDTreeWrapper
 from Signalized_Intersections import load_osmnx_graph
@@ -35,28 +37,40 @@ def get_candidates(gps_point, kd):
     Grab 2 closest nodes to gps point
     """
     nodes, distances = kd.query_min_dist_nodes(gps_point, k=2)
-    return nodes
+    return (nodes[0], distances[0]), (nodes[1], distances[1])
 
 
-def calculate_dist(p0, p1):
+def calculate_dist(G, p0, p1):
     """
-    Find distance between two points
+    Find distance between two nodes
     """
+    node_data = G.init_graph.nodes(data=True)
+    p0 = (node_data[p0]['x'], node_data[p0]['y'])
+    p1 = (node_data[p1]['x'], node_data[p1]['y'])
     return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
 
 
-def emission_probability(gps_point, node):
+def cyclist_distance(G, source, target):
+    """
+    Find cyclist distance between two nodes
+    """
+    # path = nx.algorithms.shortest_paths.astar.astar_path(G, source, target)
+    # print(path)
+    return 200
+
+
+def emission_probability(node):
     """
     For each street segment the probability of a given GPS point matching the
     street is inverse-propositional to its distance.
     """
     # A gaussian distribution
-    d = calculate_dist(gps_point, node)
-    c = 1 / (SIGMA_Z * math.sqrt(2 * math.pi))
-    return c * math.exp(d**2)
+    d = node[1]
+    c = 1 / (SIGMA_Z * np.sqrt(2 * np.pi))
+    return c * np.exp(d**2)
 
 
-def transition_probability(node1, node2):
+def transition_probability(G, node1, node2):
     """
     Measure the probability to transition from one street segment to any other
     street segment. Newson and Krumm found that a large difference between the
@@ -65,12 +79,12 @@ def transition_probability(node1, node2):
     """
     # An empirical distribution
     c = 1 / BETA
-    delta = math.abs(cyclist_distance(node1, node2) -
-                     calculate_dist(node1, node2))
-    return c * math.exp(-delta)
+    delta = abs(cyclist_distance(G, node1, node2) -
+                calculate_dist(G, node1, node2))
+    return c * np.exp(-delta)
 
 
-def path_probability(path):
+def path_probability(G, path):
     """
     A path is a list of (node, gps_signal)
     Calculate joint probability of each point in path, returns product
@@ -78,22 +92,22 @@ def path_probability(path):
     start = path[0]
     p = emission_probability(start)
     for i in range(1, len(path)):
-        p *= transition_probability(path[i-1][0],
-                                    path[i][0]) * emission_probability(path[i])
+        p *= transition_probability(G, path[i-1][0], path[i][0]) * \
+            emission_probability(path[i][0], path[i][1])
     return p
 
 
-def maximum_path_prob(adjacency_list, s, t):
+def maximum_path_prob(G, gps_signals, kd):
     """
     Find the path from a list of gps signals that maximizes path probability
     """
     paths = all_paths(gps_signals, [], kd)
-    max_prob = path_probability(paths[0])
-    max_path = paths[0]
+    max_prob = 0
+    max_path = 0
     for path in paths:
-        curr = path_probability(path)
+        curr = path_probability(G, path)
         if curr > max_prob:
-            max_prob = path_probability(path)
+            max_prob = path_probability(G, path)
             max_path = path
     return max_path
 
@@ -146,4 +160,4 @@ if __name__ == "__main__":
     # rr_paths = get_ride_report_paths()
     # matched_paths = first_pass(rr_paths, kd)
     gps_signals = [(2342, 2324), (3453, 29524)]
-    paths = all_paths(gps_signals, [], kd)
+    p = maximum_path_prob(G, gps_signals, kd)
