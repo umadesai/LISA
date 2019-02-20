@@ -541,13 +541,13 @@ if __name__ == "__main__":
 
     def node_filter(data):
         if data.get("x")>-77.101:
-            return 'r'
+            return 'b'
         else:
             return "#1F1F1F"
 
 
     edge_legend = {"Separate path":'r', "Has crosswalk":'m', "Has bike lane":'g'}
-    node_legend = {"x > -77.01": 'r', "x <= -77.01":'#1F1F1F'}
+    node_legend = {"x > -77.01": 'b', "x <= -77.01":'#1F1F1F'}
 
     edge_and_nodes = G.create_legend(edge_legend = edge_legend, node_legend = node_legend)
     only_nodes = G.create_legend(edge_legend = None, node_legend = node_legend)
