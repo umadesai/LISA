@@ -218,9 +218,14 @@ raw_dict = {"stop_sign":1, "traffic_light":0, "bike_lane":0, "separate_path":0, 
 weight_dict = {
     "signalized": {"stop_sign":0.5, "traffic_light":1},
     "separated" : {"bike_lane":0.5, "separate_path":1, "crosswalk":0.25}, # is crosswalk signal or separation? will it even show up on our graph?    
-    "traffic"   : {"traffic_volume":10, "speed_limit":1},
+    "traffic"   : {"traffic_volume":1, "speed_limit":1},
     "misc"      : {}
 }
+
+
+# todo: scale individual attribute weights between 0 and 1, have each bucket know its max value (signalized might go between 0 and 1.5, for example, since the weights of its 2 things are 0.5 and 1)
+
+# pass this weight dict into calculate_LTS so calculate_LTS knows how to scale everything accordingly
 
 print(bucketer(raw_dict, weight_dict))
 
@@ -236,7 +241,9 @@ def calculate_LTS(processed_dict, more_weights):
     return round(sum(weighted_list)/(len(weighted_list)*1.0))
 
 
-
+more_weights = {
+    "LTS": {"signalized":-0.5, "separated":-0.25, "traffic":0.5}
+}
 
 
 
