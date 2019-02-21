@@ -54,7 +54,7 @@ def cyclist_distance(G, source, target):
     """
     Find cyclist distance between two nodes
     """
-    # path = nx.algorithms.shortest_paths.astar.astar_path(G, source, target)
+    path = nx.algorithms.shortest_paths.astar.astar_path(G, source, target)
     # print(path)
     return 200
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
 
     G = load_osmnx_graph('dc.pickle')
     kd = KDTreeWrapper(G.DiGraph)
-    # rr_paths = get_ride_report_paths()
-    # matched_paths = first_pass(rr_paths, kd)
-    gps_signals = [(2342, 2324), (3453, 29524)]
-    p = maximum_path_prob(G, gps_signals, kd)
+    rr_paths = get_ride_report_paths()
+    matched_paths = first_pass(rr_paths, kd)
+    # gps_signals = [(2342, 2324), (3453, 29524)]
+    # p = maximum_path_prob(G, gps_signals, kd)
