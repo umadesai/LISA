@@ -14,6 +14,9 @@ def extract_routes(sf, property=None):
 
 if __name__ == "__main__":
 
+    bicycle_lanes = extract_routes(
+        shapefile.Reader("Bicycle_Lanes.shp"), 'BIKELANELE')
+
     signed_bike_routes = extract_routes(
         shapefile.Reader("Signed_Bike_Routes.shp"))
 
