@@ -173,10 +173,8 @@ def calculate_attribute_differences(path1):
     path2 = calculate_ideal_route(path1[0], path1[-1])
     attributes = ["length", "signalized", "separated", "traffic"]
 
-    path1_attribute_distribution = create_path_attribute_distribution
-    (G, path1, attributes)
-    path2_attribute_distribution = create_path_attribute_distribution
-    (G, path2, attributes)
+    path1_attribute_distribution = create_path_attribute_distribution (G, path1, attributes)
+    path2_attribute_distribution = create_path_attribute_distribution (G, path2, attributes)
 
     res = sum_of_squared_differences(
         path1_attribute_distribution, path2_attribute_distribution,
@@ -185,9 +183,21 @@ def calculate_attribute_differences(path1):
     return res
 
 
-print(calculate_attribute_differences([1,2,3,8,9,3,4]))
+# print(calculate_attribute_differences([1,2,3,8,9,3,4]))
 
 
+def normalize(value, value_range):
+
+    min_value, max_value = value_range
+
+    res = (value-min_value)/(max_value-min_value)*1.0
+
+    if res < 0:
+        res = 0
+    elif res > 1:
+        res = 1
+
+    return res
 
 def bucketer(raw_dict, weight_dict): 
     """
@@ -208,7 +218,25 @@ def bucketer(raw_dict, weight_dict):
     #TODO: Bucketer will currently fill in missing values with 0, which might make segments (which have less attributes than intersections) have lots of zeroes
     """ 
 
-    return {bucket_name:sum([raw_dict.get(x,0)*weight_dict[bucket_name].get(x,0) for x in weight_dict[bucket_name]]) for bucket_name in weight_dict}
+    # return {bucket_name:sum([raw_dict.get(x,0)*weight_dict[bucket_name].get(x,0) for x in weight_dict[bucket_name]]) for bucket_name in weight_dict}
+    bucketed_scores = {}
+
+    for bucket_name in weight_dict: # bucket_name is the larger buckets like "signalized"
+        res = 0
+        max_possible_score = 0
+
+        attribute_collection = weight_dict[bucket_name]
+        for attribute in attribute_collection: # attribute will be individual ones like "stop_sign"
+            weight_range_dict = attribute_collection[attribute]
+
+            normalized_score = normalize(raw_dict.get(attribute,0), weight_range_dict["range"])
+
+            res +=  normalized_score * weight_range_dict["weight"]
+            max_possible_score += weight_range_dict["weight"] # maxmimum possible if all normalized scores are 1
+
+        bucketed_scores[bucket_name] = res, max_possible_score
+
+    return bucketed_scores
 
 
 
@@ -216,9 +244,9 @@ raw_dict = {"stop_sign":1, "traffic_light":0, "bike_lane":0, "separate_path":0, 
 
 
 weight_dict = {
-    "signalized": {"stop_sign":0.5, "traffic_light":1},
-    "separated" : {"bike_lane":0.5, "separate_path":1, "crosswalk":0.25}, # is crosswalk signal or separation? will it even show up on our graph?    
-    "traffic"   : {"traffic_volume":1, "speed_limit":1},
+    "signalized": {"stop_sign":{"weight": 0.5, "range":(0,1)}, "traffic_light":{"weight":1, "range":(0,1)}},
+    "separated" : {"bike_lane":{"weight": 0.5, "range":(0,1)}, "separate_path":{"weight":1, "range":(0,1)}, "crosswalk":{"weight":0.25, "range":(0,1)}}, # is crosswalk signal or separation? will it even show up on our graph?    
+    "traffic"   : {"traffic_volume":{"weight": 1, "range":(0,1000)}, "speed_limit":{"weight": 1, "range":(0,80)}},
     "misc"      : {}
 }
 
@@ -353,4 +381,5 @@ more_weights = {
 #     print(node)
 
 if __name__ == "__main__":
-    calculate_attribute_differences([1, 2, 3, 8, 9, 3, 4])
+    # calculate_attribute_differences([1, 2, 3, 8, 9, 3, 4])
+    pass
