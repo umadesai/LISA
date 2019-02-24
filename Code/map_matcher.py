@@ -19,6 +19,13 @@ def get_ride_report_paths():
     return [[coord for coord in line.coords] for line in linestrings]
 
 
+def first_pass(paths, kd_tree):
+    """
+    For each gps signal, return the closest node
+    """
+    return [[kd.query_min_dist_nodes(node) for node in path] for path in paths]
+
+
 def get_map_box_match(path):
     """
     Make a call to MapBox's Map Matching API to find the most likely osm path
@@ -50,5 +57,6 @@ if __name__ == "__main__":
     G = load_osmnx_graph('dc.pickle')
     kd = KDTreeWrapper(G.DiGraph)
     paths = get_ride_report_paths()
+    # v0_paths = first_pass(paths, kd)
     match = get_map_box_match(paths[0])
     osmnx_path = get_closest_osmnx_path(match, kd)
