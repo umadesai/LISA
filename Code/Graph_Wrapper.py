@@ -4,10 +4,8 @@ from collections import defaultdict
 import networkx as nx
 from shapely.geometry import Polygon, MultiPolygon
 import pickle
-import matplotlib.pyplot as plt
-from random import randint, random, randrange, choice
+from random import random, randrange, choice
 from scipy.spatial import KDTree
-import numpy as np
 
 
 class Name:
@@ -280,9 +278,9 @@ class KDTreeWrapper:
         """
         distances, idxs = self._kd.query(x, k=k, distance_upper_bound=distance_upper_bound)
         if k == 1:
-            return self._sorted_node_ids[idxs]
+            return (self._sorted_node_ids[idxs], distances)
         elif k > 1:
-            return [self._sorted_node_ids[i] for i in idxs]
+            return ([self._sorted_node_ids[i] for i in idxs], distances)
 
 
 class GraphBuilder:
