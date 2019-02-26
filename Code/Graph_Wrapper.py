@@ -7,6 +7,12 @@ import pickle
 from random import random, randrange, choice
 from scipy.spatial import KDTree
 
+import numpy as np
+import matplotlib as mpl
+
+from matplotlib.lines import Line2D
+# For custom legends
+
 
 class Name:
     def __init__(self, name: str):
@@ -84,6 +90,7 @@ class NodesGeometry:
                 nodes_xy[segment[1]] = nodes_xy[segment[1]] - \
                     ((unit_vec * dist) - (perp_vec * dist / 2))
             else:
+                unit_vec = NodesGeometry.segment_unit_vec(nodes_xy, segment)
                 nodes_xy[segment[0]] = nodes_xy[segment[0]] + (unit_vec * dist)
                 nodes_xy[segment[1]] = nodes_xy[segment[1]] - (unit_vec * dist)
 
@@ -190,14 +197,15 @@ class StreetDataGenerator:
         overwrite any data attributes that are keyed with 'turn', 'bike_lane', 'crosswalk',
         'separate_path', 'speed_limit', 'signalized', or 'traffic_volume'
         """
-        return {'turn': random()*160,
-                'bike_lane': choice([True, False]),
-                'crosswalk': choice([True, False]),
-                'separate_path': choice([True, False]),
-                'speed_limit': randrange(25, 36, 5),
-                'signalized': choice(['stop_sign', 'traffic_light', 'no_signal']),
-                'traffic_volume': random()*1000}
-
+        return {'turn':random()*160,
+                'bike_lane':choice([True, False]),
+                'crosswalk':choice([True, False]),
+                'separate_path':choice([True, False]),
+                'speed_limit':randrange(25,36,5),
+                'signalized':choice(['stop_sign','traffic_light','no_signal']),
+                'traffic_volume':random()*1000,
+                'length':0}
+    
     def random_segment(self):
         """
         Creates random attributes for a segment edge in a DiGraph. random_segement
@@ -205,10 +213,12 @@ class StreetDataGenerator:
         overwrite any data attributes that are keyed with 'bike_lane', 'separate_path',
         'speed_limit', or 'traffic_volume'
         """
-        return {'bike_lane': choice([True, False]),
-                'separate_path': choice([True, False]),
-                'speed_limit': randrange(25, 36, 5),
-                'traffic_volume': random()*1000}
+        return {'bike_lane':choice([True, False]),
+                'separate_path':choice([True, False]),
+                'speed_limit':randrange(25,36,5),
+                'traffic_volume':random()*1000,
+                'length':random()*100}
+    
 
     def get_random_data(self, edge_data):
         """
@@ -457,6 +467,99 @@ class Graph:
         MDG = self.create_mdg()
         ox.plot_graph(MDG, fig_height=fig_height)
 
+    def plot_simple_graph(self, fig_height=10):
+        ox.plot_graph(self.init_graph, fig_height = fig_height)
+
+    def plot_routes(self, routes, fig_height=10): 
+        """
+        Create_mdg() appears to be nondeterministic.
+        routes is a list of routes.
+            Each route is a list of nodes traversed in order.
+
+        routes = None picks two routes of length 1 and plots those.
+        
+
+        """
+        MDG = self.create_mdg()
+        if routes:
+            ox.plot_graph_routes(MDG, routes, fig_height=fig_height)
+        else:
+            first_node_list = [list(MDG.edges)[0][0], list(MDG.edges)[0][1]]
+            second_node_list = [list(MDG.edges)[1][0], list(MDG.edges)[1][1]]
+
+            routes = [first_node_list, second_node_list]
+            ox.plot_graph_routes(MDG, routes, fig_height=fig_height)
+
+
+
+    def create_legend(self, edge_legend, node_legend):
+        legend_elements = []
+        if edge_legend:
+            for edge_label in edge_legend:
+                legend_elements.append(Line2D([0], [0], color = edge_legend[edge_label], lw=3, label = edge_label))
+
+        if node_legend:
+            for node_label in node_legend:
+                legend_elements.append(Line2D([0], [0], marker='o', color = node_legend[node_label], label = node_label,
+                              markerfacecolor=node_legend[node_label], markersize=8))
+        return legend_elements        
+
+
+
+
+    def highlight_graph(self, edge_filter_function, node_filter_function, legend_elements, title):
+        """
+        edge_filter_function and node_filter_function take in a dict and return a color.
+
+        something like:
+
+        edge_filter_function = lambda x: 'r' if x.get("traffic_volume",0)>200 else '#0F0F0F'
+
+        node_filter_function = lambda z: 'b' if z.get("y")>-77.098 else '#0F0F0F'
+
+        """
+
+        G = self.create_mdg()
+        ec = '#0F0F0F'
+        nc = '#0F0F0F'
+
+        if edge_filter_function:
+            ec = [edge_filter_function(data) for u, v, data in G.edges(data=True)]
+        if node_filter_function:
+            nc = [node_filter_function(data) for u, data in G.nodes(data=True)]
+
+        fig, ax = ox.plot.plot_graph(G, show=False, close=False, edge_color=ec, node_color=nc)
+
+
+
+        ax.legend(handles=legend_elements)
+
+        print([k for k in ax.collections])
+        return fig, ax
+
+    def show_graph(self, fig, ax):
+        plt.show()
+
+    def create_pos(self):
+        pos = {}
+        for tup in self.DiGraph.nodes(data=True):
+            node = tup[0]
+            xy_dict = tup[1]
+            pos[node] = (xy_dict["x"], xy_dict["y"])
+        return pos
+
+    def create_reverse_pos(self):
+        pos = {}
+        for tup in self.DiGraph.nodes(data=True):
+            node = tup[0]
+            xy_dict = tup[1]
+            pos[(xy_dict["x"], xy_dict["y"])] = node
+        return pos       
+
+    def create_edge_labels(self, attribute_list):
+        edge_labels = {(u, v): {attribute: d.get(attribute) for attribute in attribute_list} for u, v, d in self.DiGraph.edges(data=True)}
+        return edge_labels
+
     def min_dist_init_nodes(self, x, k=1, distance_upper_bound=np.inf):
         """
         Finds the closest "k" nodes to the point "x" with maximum distance
@@ -487,9 +590,126 @@ class Graph:
 if __name__ == "__main__":
     bbox = Bbox(38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
     G = Graph.from_bound(bbox)
-    print(f"First 100 nodes: {list(G.DiGraph.nodes)[:100]}\n")
-    print(f"First 100 edges: {list(G.DiGraph.edges)[:100]}\n")
+    # print([list(G.DiGraph.nodes(data=True))[i] for i in range(10)])
 
-    init_graph_node = list(G.init_graph.nodes)[30]  # pink node
+    # print(f"First 100 nodes: {list(G.DiGraph.nodes(data=True))[:100]}\n")
+    # print(f"First 100 edges: {list(G.DiGraph.edges)[:100]}\n")
+
+    
+    init_graph_node = list(G.init_graph.nodes)[30] # pink node
+
     expanded_nodes = G.node_map[init_graph_node]  # yellow nodes
     print(f"Pink node: {init_graph_node} -> Yellow nodes: {expanded_nodes}\n")
+
+
+
+    def edge_filter(data):
+        if data.get("separate_path"):
+            return 'r'
+        elif data.get("crosswalk"):
+            return 'm'
+        elif data.get("bike_lane"):
+            return 'g'
+        else:
+            return "#1F1F1F"
+
+
+    def node_filter(data):
+        if data.get("x")>-77.101:
+            return 'b'
+        else:
+            return "#1F1F1F"
+
+
+    edge_legend = {"Separate path":'r', "Has crosswalk":'m', "Has bike lane":'g'}
+    node_legend = {"x > -77.01": 'b', "x <= -77.01":'#1F1F1F'}
+
+    edge_and_nodes = G.create_legend(edge_legend = edge_legend, node_legend = node_legend)
+    only_nodes = G.create_legend(edge_legend = None, node_legend = node_legend)
+
+
+    # fig, ax1 = G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, legend_elements = edge_and_nodes, title = "Test title")
+    fig, ax2 = G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, legend_elements = only_nodes, title = "Test title")
+
+    # ax1.scatter([-77.102, -77.103], [38.88,38.881], color='b')
+
+    pos = G.create_pos()
+
+    edge_labels = G.create_edge_labels(["separate_path", "crosswalk"])
+
+    # nx.draw_networkx_edge_labels(G.DiGraph, pos, ax = ax1, edge_labels = edge_labels, alpha = 0.5, rotate = False)
+
+    def on_plot_hover(event):
+        for child in ax2.get_children():
+            if type(child) is mpl.collections.LineCollection:
+                contains, dct = child.contains(event)
+                if contains:
+                    arr = dct["ind"]
+                    print([child.get_segments()[i] for i in arr])
+                    # print("over %s" % str(child.__repr__) + str(dct))
+
+    # fig.canvas.mpl_connect('motion_notify_event', on_plot_hover)
+
+
+
+    annot = ax2.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
+                    bbox=dict(boxstyle="round", fc="w"),
+                    arrowprops=dict(arrowstyle="->"))
+    annot.set_visible(False)
+
+    reverse_pos = G.create_reverse_pos()
+
+    # def update_annot(ind):
+    #     arr = ind["ind"]
+
+    #     x,y = arr[0].get_segments()
+    #                 print([child.get_segments()[i] for i in arr])
+
+
+
+    #     annot.xy = (x[ind["ind"][0]], y[ind["ind"][0]])
+    #     text = "{}, {}".format(" ".join(list(map(str,ind["ind"]))), 
+    #                            " ".join([names[n] for n in ind["ind"]]))
+    #     annot.set_text(text)
+    #     annot.get_bbox_patch().set_alpha(0.4)
+
+
+    def hover(event):
+        vis = annot.get_visible()
+        if event.inaxes == ax2:
+            for child in ax2.get_children():
+                if type(child) is mpl.collections.LineCollection:
+                    cont, ind = child.contains(event)
+                    if cont:
+
+                        arr = ind["ind"]
+
+
+
+                        annot.xy = (event.xdata, event.ydata)
+
+
+                        point1, point2 = child.get_segments()[arr[0]] #point1 and point2 are each [x, y] arrays
+                        point1_x, point1_y = point1
+                        point2_x, point2_y = point2
+
+                        node1 = reverse_pos[(point1_x, point1_y)]
+                        node2 = reverse_pos[(point2_x, point2_y)]
+                        edge = G.DiGraph.edges[node1, node2]
+
+
+                        text = str(edge) #text is now the gps coords of both points
+                        annot.set_text(text)
+                        annot.get_bbox_patch().set_alpha(0.4)
+
+                        annot.set_visible(True)
+                        fig.canvas.draw_idle()
+                    else:
+                        if vis:
+                            annot.set_visible(False)
+                            fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect("motion_notify_event", hover)
+
+    # G.show_graph(fig, ax2)
+    plt.show()
