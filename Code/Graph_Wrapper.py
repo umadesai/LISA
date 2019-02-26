@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from random import randint, random, randrange, choice
 from scipy.spatial import KDTree
 import numpy as np
+import matplotlib as mpl
 
 from matplotlib.lines import Line2D
 # For custom legends
@@ -528,7 +529,9 @@ class Graph:
 
 
         ax.legend(handles=legend_elements)
-        return ax
+
+        print([k for k in ax.collections])
+        return fig, ax
 
     def show_graph(self, fig, ax):
         plt.show()
@@ -540,6 +543,14 @@ class Graph:
             xy_dict = tup[1]
             pos[node] = (xy_dict["x"], xy_dict["y"])
         return pos
+
+    def create_reverse_pos(self):
+        pos = {}
+        for tup in self.DiGraph.nodes(data=True):
+            node = tup[0]
+            xy_dict = tup[1]
+            pos[(xy_dict["x"], xy_dict["y"])] = node
+        return pos       
 
     def create_edge_labels(self, attribute_list):
         edge_labels = {(u, v): {attribute: d.get(attribute) for attribute in attribute_list} for u, v, d in self.DiGraph.edges(data=True)}
@@ -611,15 +622,88 @@ if __name__ == "__main__":
     only_nodes = G.create_legend(edge_legend = None, node_legend = node_legend)
 
 
-    ax1 = G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, legend_elements = edge_and_nodes, title = "Test title")
-    # ax2 = G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, legend_elements = only_nodes, title = "Test title")
+    # fig, ax1 = G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, legend_elements = edge_and_nodes, title = "Test title")
+    fig, ax2 = G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, legend_elements = only_nodes, title = "Test title")
 
-    ax1.scatter([-77.102, -77.103], [38.88,38.881], color='b')
+    # ax1.scatter([-77.102, -77.103], [38.88,38.881], color='b')
 
     pos = G.create_pos()
 
     edge_labels = G.create_edge_labels(["separate_path", "crosswalk"])
 
-    nx.draw_networkx_edge_labels(G.DiGraph, pos, ax = ax1, edge_labels = edge_labels, alpha = 0.5, rotate = False)
+    # nx.draw_networkx_edge_labels(G.DiGraph, pos, ax = ax1, edge_labels = edge_labels, alpha = 0.5, rotate = False)
 
+    def on_plot_hover(event):
+        for child in ax2.get_children():
+            if type(child) is mpl.collections.LineCollection:
+                contains, dct = child.contains(event)
+                if contains:
+                    arr = dct["ind"]
+                    print([child.get_segments()[i] for i in arr])
+                    # print("over %s" % str(child.__repr__) + str(dct))
+
+    # fig.canvas.mpl_connect('motion_notify_event', on_plot_hover)
+
+
+
+    annot = ax2.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
+                    bbox=dict(boxstyle="round", fc="w"),
+                    arrowprops=dict(arrowstyle="->"))
+    annot.set_visible(False)
+
+    reverse_pos = G.create_reverse_pos()
+
+    # def update_annot(ind):
+    #     arr = ind["ind"]
+
+    #     x,y = arr[0].get_segments()
+    #                 print([child.get_segments()[i] for i in arr])
+
+
+
+    #     annot.xy = (x[ind["ind"][0]], y[ind["ind"][0]])
+    #     text = "{}, {}".format(" ".join(list(map(str,ind["ind"]))), 
+    #                            " ".join([names[n] for n in ind["ind"]]))
+    #     annot.set_text(text)
+    #     annot.get_bbox_patch().set_alpha(0.4)
+
+
+    def hover(event):
+        vis = annot.get_visible()
+        if event.inaxes == ax2:
+            for child in ax2.get_children():
+                if type(child) is mpl.collections.LineCollection:
+                    cont, ind = child.contains(event)
+                    if cont:
+
+                        arr = ind["ind"]
+
+
+
+                        annot.xy = (event.xdata, event.ydata)
+
+
+                        point1, point2 = child.get_segments()[arr[0]] #point1 and point2 are each [x, y] arrays
+                        point1_x, point1_y = point1
+                        point2_x, point2_y = point2
+
+                        node1 = reverse_pos[(point1_x, point1_y)]
+                        node2 = reverse_pos[(point2_x, point2_y)]
+                        edge = G.DiGraph.edges[node1, node2]
+
+
+                        text = str(edge) #text is now the gps coords of both points
+                        annot.set_text(text)
+                        annot.get_bbox_patch().set_alpha(0.4)
+
+                        annot.set_visible(True)
+                        fig.canvas.draw_idle()
+                    else:
+                        if vis:
+                            annot.set_visible(False)
+                            fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect("motion_notify_event", hover)
+
+    # G.show_graph(fig, ax2)
     plt.show()
