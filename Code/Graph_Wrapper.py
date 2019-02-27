@@ -10,6 +10,7 @@ from scipy.spatial import KDTree
 import numpy as np
 import matplotlib as mpl
 
+import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 # For custom legends
 
@@ -698,7 +699,7 @@ if __name__ == "__main__":
                         edge = G.DiGraph.edges[node1, node2]
 
 
-                        text = str(edge) #text is now the gps coords of both points
+                        text = str(edge)
                         annot.set_text(text)
                         annot.get_bbox_patch().set_alpha(0.4)
 
