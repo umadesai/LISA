@@ -106,86 +106,86 @@ def deviations_per_length(route, pathfinding_function):
 # print(calculate_deviance_per_length([1,3,2],1,2,foo))
 
 
-def calculate_ideal_route(start, end):
-    c = Cyclist(acceptable_stress=3, graph=G, location=start,
-                calculate_stress=calculate_stress,
-                decision_weights=decision_models[0], probabilistic=False)
-    return c.decide(end)
+# def calculate_ideal_route(start, end):
+#     c = Cyclist(acceptable_stress=3, graph=G, location=start,
+#                 calculate_stress=calculate_stress,
+#                 decision_weights=decision_models[0], probabilistic=False)
+#     return c.decide(end)
 
 
-def deviations_per_length(route, pathfinding_function):
-    return count_deviations(route, route[0], route[-1],
-                            pathfinding_function)/(len(route)-1)
+# def deviations_per_length(route, pathfinding_function):
+#     return count_deviations(route, route[0], route[-1],
+#                             pathfinding_function)/(len(route)-1)
 
 
-def create_path_attribute_distribution(graph, path, attributes):
-    """
-    Takes in a graph, a path representing nodes through the graph, and a
-    list of attributes of interest and returns a dictionary with
-    ATTRIBUTE_NAME:DISTRIBUTION_COUNTER key:value pairs. This tells us how
-    many traversed edges (no order involved) have a certain value of a
-    certain attribute.
-    """
-    import collections
-    attribute_counters = []
-    for attribute in attributes:
-        attribute_counters.append(collections.Counter())
-    for i in range(len(path)-1):
-        edge = graph[path[i]][path[i+1]]
-        for j in range(len(attributes)):
-            attribute_counters[j].update([edge[attributes[j]]])
-            # possibly inefficient
-    return {attributes[k]: attribute_counters[k] for k in
-            range(len(attributes))}
+# def create_path_attribute_distribution(graph, path, attributes):
+#     """
+#     Takes in a graph, a path representing nodes through the graph, and a
+#     list of attributes of interest and returns a dictionary with
+#     ATTRIBUTE_NAME:DISTRIBUTION_COUNTER key:value pairs. This tells us how
+#     many traversed edges (no order involved) have a certain value of a
+#     certain attribute.
+#     """
+#     import collections
+#     attribute_counters = []
+#     for attribute in attributes:
+#         attribute_counters.append(collections.Counter())
+#     for i in range(len(path)-1):
+#         edge = graph[path[i]][path[i+1]]
+#         for j in range(len(attributes)):
+#             attribute_counters[j].update([edge[attributes[j]]])
+#             # possibly inefficient
+#     return {attributes[k]: attribute_counters[k] for k in
+#             range(len(attributes))}
 
 
-def sum_of_squared_differences(distribution_dict_1, distribution_dict_2,
-                               path1_length, path2_length):
-    """
-    distribution_dict_1 and 2 are dictionaries with
-    ATTRIBUTE_NAME:DISTRIBUTION_sCOUNTER key:value pairs
-    representing two paths. For each attribute, we sum the difference between
-    each value in the distribution counters for each path.
-    """
+# def sum_of_squared_differences(distribution_dict_1, distribution_dict_2,
+#                                path1_length, path2_length):
+#     """
+#     distribution_dict_1 and 2 are dictionaries with
+#     ATTRIBUTE_NAME:DISTRIBUTION_sCOUNTER key:value pairs
+#     representing two paths. For each attribute, we sum the difference between
+#     each value in the distribution counters for each path.
+#     """
 
-    differences = {}
+#     differences = {}
 
-    for attribute in distribution_dict_1:
-        counter1 = distribution_dict_1[attribute]
-        counter2 = distribution_dict_2[attribute]
-        seen = set()
-        result = 0
-        for key in counter1:
-            seen.add(key)
-            result += (counter1[key]/path1_length -
-                       counter2[key]/path2_length)**2
-        for key in counter2:
-            if key not in seen:
-                seen.add(key)
-                result += (counter1[key]/path1_length -
-                           counter2[key]/path2_length)**2
-        differences[attribute] = result
+#     for attribute in distribution_dict_1:
+#         counter1 = distribution_dict_1[attribute]
+#         counter2 = distribution_dict_2[attribute]
+#         seen = set()
+#         result = 0
+#         for key in counter1:
+#             seen.add(key)
+#             result += (counter1[key]/path1_length -
+#                        counter2[key]/path2_length)**2
+#         for key in counter2:
+#             if key not in seen:
+#                 seen.add(key)
+#                 result += (counter1[key]/path1_length -
+#                            counter2[key]/path2_length)**2
+#         differences[attribute] = result
 
-    return (sum([differences[m] for m in differences]), differences)
-
-
-def calculate_attribute_differences(path1):
-    path2 = calculate_ideal_route(path1[0], path1[-1])
-    attributes = ["length", "signalized", "separated", "traffic"]
-
-    path1_attribute_distribution = create_path_attribute_distribution
-    (G, path1, attributes)
-    path2_attribute_distribution = create_path_attribute_distribution
-    (G, path2, attributes)
-
-    res = sum_of_squared_differences(
-        path1_attribute_distribution, path2_attribute_distribution,
-        path1_length=len(path1), path2_length=len(path2))
-
-    return res
+#     return (sum([differences[m] for m in differences]), differences)
 
 
-print(calculate_attribute_differences([1,2,3,8,9,3,4]))
+# def calculate_attribute_differences(path1):
+#     path2 = calculate_ideal_route(path1[0], path1[-1])
+#     attributes = ["length", "signalized", "separated", "traffic"]
+
+#     path1_attribute_distribution = create_path_attribute_distribution
+#     (G, path1, attributes)
+#     path2_attribute_distribution = create_path_attribute_distribution
+#     (G, path2, attributes)
+
+#     res = sum_of_squared_differences(
+#         path1_attribute_distribution, path2_attribute_distribution,
+#         path1_length=len(path1), path2_length=len(path2))
+
+#     return res
+
+
+# print(calculate_attribute_differences([1,2,3,8,9,3,4]))
 
 
 
@@ -218,24 +218,28 @@ raw_dict = {"stop_sign":1, "traffic_light":0, "bike_lane":0, "separate_path":0, 
 weight_dict = {
     "signalized": {"stop_sign":0.5, "traffic_light":1},
     "separated" : {"bike_lane":0.5, "separate_path":1, "crosswalk":0.25}, # is crosswalk signal or separation? will it even show up on our graph?    
-    "traffic"   : {"traffic_volume":10, "speed_limit":1},
+    "traffic"   : {"traffic_volume":2, "speed_limit":0.1},
     "misc"      : {}
 }
 
-print(bucketer(raw_dict, weight_dict))
+
+bucketed = bucketer(raw_dict, weight_dict)
+print(bucketed)
 
 
-def calculate_LTS(processed_dict, more_weights):
+def calculate_desirability(processed_dict, more_weights):
     """
     For the buckets, signalized and separated make LTS lower and traffic makes LTS higher
     """
-    weighted_LTS_components = {bucket_name:sum([processed_dict.get(x,0)*more_weights[bucket_name].get(x,0) for x in more_weights[bucket_name]]) for bucket_name in more_weights}
+    desirability = 0
 
-    weighted_list = [weighted_LTS_components[x] for x in weighted_LTS_components]
+    for bucket_name in more_weights:
+        desirability += processed_dict.get(bucket_name,0) * more_weights.get(bucket_name,0)
 
-    return round(sum(weighted_list)/(len(weighted_list)*1.0))
+    return desirability
 
-
+desirability = calculate_desirability(bucketed, {"misc":0, "signalized":2, "traffic": 0.05, "separated": 4})
+print(desirability)
 
 
 
@@ -346,4 +350,5 @@ def calculate_LTS(processed_dict, more_weights):
 #     print(node)
 
 if __name__ == "__main__":
-    calculate_attribute_differences([1, 2, 3, 8, 9, 3, 4])
+    # calculate_attribute_differences([1, 2, 3, 8, 9, 3, 4])
+    pass

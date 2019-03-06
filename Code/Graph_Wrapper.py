@@ -535,7 +535,6 @@ class Graph:
 
         ax.legend(handles=legend_elements)
 
-        print([k for k in ax.collections])
         return fig, ax
 
     def show_graph(self, fig, ax):
@@ -588,6 +587,101 @@ class Graph:
         return self._dg_min_dist.query_min_dist_nodes(x, k=k, distance_upper_bound=distance_upper_bound)
 
 
+
+
+class Graph_Hover(object):
+    #TODO: Rejigger Graph_Hover to only take one axis (each axis we want to hover will have its own Graph_Hover object)
+
+
+    def __init__(self, graph, fig, ax):
+        self.graph = graph
+        self.fig = fig
+        self.ax = ax
+        self.reverse_pos = graph.create_reverse_pos()
+        self.annot = None      
+
+        ## For node hovering
+        # self.mdg = self.graph.create_mdg()
+
+
+
+    def annotate_ax(self):
+        # for axis in self.axes_hover:
+        self.annot = self.ax.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
+                    bbox=dict(boxstyle="round", fc="w"),
+                    arrowprops=dict(arrowstyle="->"))
+        self.annot.set_visible(False)
+
+    def hover(self, event):
+        axis = event.inaxes
+
+        if axis == self.ax:
+            annot = self.annot
+            vis = self.annot.get_visible()
+            for child in axis.collections:
+                if type(child) is mpl.collections.LineCollection:
+                    cont, ind = child.contains(event)
+                    if cont:
+
+                        arr = ind["ind"]
+
+
+
+                        annot.xy = (event.xdata, event.ydata)
+
+
+                        point1, point2 = child.get_segments()[arr[0]] #point1 and point2 are each [x, y] arrays
+                        point1_x, point1_y = point1
+                        point2_x, point2_y = point2
+
+                        node1 = self.reverse_pos[(point1_x, point1_y)]
+                        node2 = self.reverse_pos[(point2_x, point2_y)]
+                        edge = self.graph.DiGraph.edges[node1, node2]
+
+
+                        text = str(edge)
+                        self.annot.set_text(text)
+                        self.annot.get_bbox_patch().set_alpha(0.4)
+
+                        self.annot.set_visible(True)
+                        fig.canvas.draw_idle()
+                    else:
+                        if vis:
+                            self.annot.set_visible(False)
+                            fig.canvas.draw_idle()
+
+                ## For node hovering          
+                # elif type(child) is mpl.collections.PathCollection:
+                #     cont,ind = child.contains(event)
+                #     if cont:
+                #         arr = ind["ind"]
+                #         # print(arr[0])
+                #         text = self.mdg.nodes(data=True)[arr[0]] #super sketchy, but apparently self.mdg.nodes names the nodes the same way pyplot reads them
+
+
+                #         self.annot.set_text(text)
+                #         self.annot.get_bbox_patch().set_alpha(0.4)
+
+                #         self.annot.set_visible(True)
+                #         fig.canvas.draw_idle()
+                #     else:
+                #         if vis:
+                #             self.annot.set_visible(False)
+                #             fig.canvas.draw_idle()
+
+
+    def add_scatter(self):
+        ax = self.ax
+        ax.scatter([-77.102, -77.103], [38.88,38.881], color='b')
+
+    def display_graph(self):
+        self.add_scatter()
+        self.annotate_ax()
+        self.fig.canvas.mpl_connect("motion_notify_event", self.hover)
+        plt.show()
+
+
+
 if __name__ == "__main__":
     bbox = Bbox(38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
     G = Graph.from_bound(bbox)
@@ -629,88 +723,19 @@ if __name__ == "__main__":
     only_nodes = G.create_legend(edge_legend = None, node_legend = node_legend)
 
 
-    # fig, ax1 = G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, legend_elements = edge_and_nodes, title = "Test title")
-    fig, ax2 = G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, legend_elements = only_nodes, title = "Test title")
+    fig, ax1 = G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, legend_elements = edge_and_nodes, title = "Test title")
 
     # ax1.scatter([-77.102, -77.103], [38.88,38.881], color='b')
 
-    pos = G.create_pos()
-
-    edge_labels = G.create_edge_labels(["separate_path", "crosswalk"])
-
+    # pos = G.create_pos()
+    # edge_labels = G.create_edge_labels(["separate_path", "crosswalk"])
     # nx.draw_networkx_edge_labels(G.DiGraph, pos, ax = ax1, edge_labels = edge_labels, alpha = 0.5, rotate = False)
 
-    def on_plot_hover(event):
-        for child in ax2.get_children():
-            if type(child) is mpl.collections.LineCollection:
-                contains, dct = child.contains(event)
-                if contains:
-                    arr = dct["ind"]
-                    print([child.get_segments()[i] for i in arr])
-                    # print("over %s" % str(child.__repr__) + str(dct))
 
-    # fig.canvas.mpl_connect('motion_notify_event', on_plot_hover)
+    hover = Graph_Hover(graph = G, fig = fig, ax = ax1)
+    hover.display_graph()
 
+    fig, ax2 = G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, legend_elements = only_nodes, title = "Test title")
 
-
-    annot = ax2.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
-                    bbox=dict(boxstyle="round", fc="w"),
-                    arrowprops=dict(arrowstyle="->"))
-    annot.set_visible(False)
-
-    reverse_pos = G.create_reverse_pos()
-
-    # def update_annot(ind):
-    #     arr = ind["ind"]
-
-    #     x,y = arr[0].get_segments()
-    #                 print([child.get_segments()[i] for i in arr])
-
-
-
-    #     annot.xy = (x[ind["ind"][0]], y[ind["ind"][0]])
-    #     text = "{}, {}".format(" ".join(list(map(str,ind["ind"]))), 
-    #                            " ".join([names[n] for n in ind["ind"]]))
-    #     annot.set_text(text)
-    #     annot.get_bbox_patch().set_alpha(0.4)
-
-
-    def hover(event):
-        vis = annot.get_visible()
-        if event.inaxes == ax2:
-            for child in ax2.get_children():
-                if type(child) is mpl.collections.LineCollection:
-                    cont, ind = child.contains(event)
-                    if cont:
-
-                        arr = ind["ind"]
-
-
-
-                        annot.xy = (event.xdata, event.ydata)
-
-
-                        point1, point2 = child.get_segments()[arr[0]] #point1 and point2 are each [x, y] arrays
-                        point1_x, point1_y = point1
-                        point2_x, point2_y = point2
-
-                        node1 = reverse_pos[(point1_x, point1_y)]
-                        node2 = reverse_pos[(point2_x, point2_y)]
-                        edge = G.DiGraph.edges[node1, node2]
-
-
-                        text = str(edge)
-                        annot.set_text(text)
-                        annot.get_bbox_patch().set_alpha(0.4)
-
-                        annot.set_visible(True)
-                        fig.canvas.draw_idle()
-                    else:
-                        if vis:
-                            annot.set_visible(False)
-                            fig.canvas.draw_idle()
-
-    fig.canvas.mpl_connect("motion_notify_event", hover)
-
-    # G.show_graph(fig, ax2)
-    plt.show()
+    hover = Graph_Hover(graph = G, fig = fig, ax = ax2)
+    hover.display_graph()
