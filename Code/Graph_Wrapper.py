@@ -4,33 +4,39 @@ from collections import defaultdict
 import networkx as nx
 from shapely.geometry import Polygon, MultiPolygon
 import pickle
-import matplotlib.pyplot as plt
-from random import randint, random, randrange, choice
+from random import random, randrange, choice
+from scipy.spatial import KDTree
+
+import numpy as np
+import matplotlib as mpl
+
+from matplotlib.lines import Line2D
+# For custom legends
+
 
 class Name:
     def __init__(self, name: str):
         self.name = name
-        
+
         self.gdf = ox.gdf_from_place(name)
         self.official_name = self.gdf.place_name.values[0]
         self.geometry = self.gdf.geometry[0]
         if not type(self.geometry) is Polygon or type(self.geometry) is MultiPolygon:
             raise TypeError("Location geometry was not a Polygon or a MultiPolygon")
-        
+
     def summary(self):
         print(f"Input Name: {self.name}")
         print(f"Official Name: {self.official_name}")
         print(type(self.geometry))
 
 
-
 class Bbox:
     def __init__(self, north, south, east, west):
         self.bbox = (north, south, east, west)
-        
+
     def __iter__(self):
         return (b for b in self.bbox)
-    
+
     def summary(self):
         width = self.bbox[0] - self.bbox[1]
         height = self.bbox[2] - self.bbox[3]
@@ -46,7 +52,7 @@ class NodesGeometry:
         nodes_xy = self.create_nodes_xy(G, nodes)
         nodes_xy = self.update_nodes_xy(nodes_xy, segments)
         self.nodes = self.create_nodes(nodes_xy)
-    
+
     @staticmethod
     def xy_vec(nodes_xy, n1, n2):
         """
@@ -62,35 +68,38 @@ class NodesGeometry:
     def segment_unit_vec(nodes_xy, segment):
         arr = NodesGeometry.segment_vec(nodes_xy, segment)
         return arr / np.linalg.norm(arr)
-    
+
     def create_nodes_xy(self, G, nodes):
         nodes_xy = {}
         for node in nodes:
             xy = G.nodes()[node[0]]
             x = xy['x']
             y = xy['y']
-            nodes_xy[node] = np.array((x,y))
-            
+            nodes_xy[node] = np.array((x, y))
+
         return nodes_xy
-    
+
     def update_nodes_xy(self, nodes_xy, segments):
-        dist = .00001 #change to 10 feet once you figure out units
+        dist = .00001  # change to 10 feet once you figure out units
         for segment in segments:
             if segment[2]['has_comp']:
                 unit_vec = NodesGeometry.segment_unit_vec(nodes_xy, segment)
-                perp_vec = np.array([unit_vec[1],unit_vec[0]*-1])
-                nodes_xy[segment[0]] = nodes_xy[segment[0]] + ((unit_vec * dist) + (perp_vec * dist / 2))
-                nodes_xy[segment[1]] = nodes_xy[segment[1]] - ((unit_vec * dist) - (perp_vec * dist / 2))
+                perp_vec = np.array([unit_vec[1], unit_vec[0]*-1])
+                nodes_xy[segment[0]] = nodes_xy[segment[0]] + \
+                    ((unit_vec * dist) + (perp_vec * dist / 2))
+                nodes_xy[segment[1]] = nodes_xy[segment[1]] - \
+                    ((unit_vec * dist) - (perp_vec * dist / 2))
             else:
+                unit_vec = NodesGeometry.segment_unit_vec(nodes_xy, segment)
                 nodes_xy[segment[0]] = nodes_xy[segment[0]] + (unit_vec * dist)
                 nodes_xy[segment[1]] = nodes_xy[segment[1]] - (unit_vec * dist)
-    
+
         return nodes_xy
-    
+
     def create_nodes(self, nodes_xy):
         nodes_graph = {}
-        for k,v in nodes_xy.items():
-            nodes_graph[k] = {'x':v[0], 'y':v[1]}
+        for k, v in nodes_xy.items():
+            nodes_graph[k] = {'x': v[0], 'y': v[1]}
         nodes = [(k, v) for k, v in nodes_graph.items()]
         return nodes
 
@@ -101,7 +110,7 @@ class IntersectionBuilder:
         :param in_out: in out dictionary of the init_graph nodes
         """
         self.intersections = self.create_intersections(in_out)
-    
+
     def create_intersections(self, in_out):
         intersections = []
         for k, v in in_out.items():
@@ -111,7 +120,7 @@ class IntersectionBuilder:
                 for n_out in v['out']:
                     n2 = (k, n_out, 'out')
                     if n_in != n_out:
-                        intersections.append((n1, n2, {'type':'intersection'}))
+                        intersections.append((n1, n2, {'type': 'intersection'}))
         return intersections
 
 
@@ -122,14 +131,14 @@ class SegmentBuilder:
         """
         self.segments = self.create_segments(in_out)
         self.nodes = self.extract_nodes(self.segments)
-    
+
     def extract_nodes(self, segments):
         nodes = set()
         for segment in segments:
             nodes.add(segment[0])
             nodes.add(segment[1])
         return nodes
-        
+
     def complement_dir(self, s: str):
         """
         TODO: Switch to True and False so I don't have to write this function
@@ -140,7 +149,7 @@ class SegmentBuilder:
             return 'in'
         else:
             print("complement_dir failed")
-            
+
     def complement_segment(self, segment):
         """
         Computes the complementary segment of the given segment. The
@@ -154,7 +163,7 @@ class SegmentBuilder:
         n2 = (n1[0], n1[1], self.complement_dir(n1[2]))
 
         return (n2, n3)
-    
+
     def create_segments_set(self, in_out):
         segments_set = set()
         for k, v in in_out.items():
@@ -163,7 +172,7 @@ class SegmentBuilder:
                 n2 = (k, node, 'in')
                 segments_set.add((n1, n2))
         return segments_set
-    
+
     def create_segments_list(self, segments):
         segment_list = []
         for segment in segments:
@@ -171,15 +180,15 @@ class SegmentBuilder:
                 has_comp = True
             else:
                 has_comp = False
-            segment_list.append((segment[0], segment[1], {'type': 'segment', 'has_comp':has_comp}))
+            segment_list.append((segment[0], segment[1], {'type': 'segment', 'has_comp': has_comp}))
         return segment_list
-    
+
     def create_segments(self, in_out):
         segments_set = self.create_segments_set(in_out)
         segments_list = self.create_segments_list(segments_set)
         return segments_list
 
-    
+
 class StreetDataGenerator:
     def random_intersection(self):
         """
@@ -194,7 +203,8 @@ class StreetDataGenerator:
                 'separate_path':choice([True, False]),
                 'speed_limit':randrange(25,36,5),
                 'signalized':choice(['stop_sign','traffic_light','no_signal']),
-                'traffic_volume':random()*1000}
+                'traffic_volume':random()*1000,
+                'length':0}
     
     def random_segment(self):
         """
@@ -206,8 +216,10 @@ class StreetDataGenerator:
         return {'bike_lane':choice([True, False]),
                 'separate_path':choice([True, False]),
                 'speed_limit':randrange(25,36,5),
-                'traffic_volume':random()*1000}
+                'traffic_volume':random()*1000,
+                'length':random()*100}
     
+
     def get_random_data(self, edge_data):
         """
         Calls the appropriate random data generator function by checking the
@@ -222,25 +234,25 @@ class StreetDataGenerator:
         else:
             raise Exception(f"Edge data({edge_data}) does not have a road 'type'")
         return random_data
-                
+
     def generate_attributes(self,  DG):
         """
         generate_attributes is a temporary function that allows us to fake having roadway
         attribute data
-        
+
         :param DG: networkx DiGraph
         :returns: a dictionary containing attirbutes to be added to the DiGraph
         """
         attributes = {}
         for n1, n2, edge_data in DG.edges(data=True):
-            edge = (n1 ,n2)
+            edge = (n1, n2)
             attributes[edge] = self.get_random_data(edge_data)
         return attributes
-    
+
     def add_random_attributes(self, DG):
         """
         Adds random roadway attribute data to a DiGraph in place
-        
+
         :param DG: networkx DiGraph to be modified
         :returns: None - modifies DiGraph in place
         """
@@ -248,14 +260,47 @@ class StreetDataGenerator:
         nx.set_edge_attributes(DG, values=attributes)
 
 
+class KDTreeWrapper:
+    """
+    Wraps the Scipy KD Tree to allow minimum distance node querying of NetworkX
+    graphs.
+    """
+
+    def __init__(self, G):
+        """
+        Initializes a KD tree and corresponding sorted node arrays
+        """
+        self._sorted_nodes = sorted(list(G.nodes(data=True)), key=lambda n: n[0])
+        self._sorted_node_ids = [node for node, data in self._sorted_nodes]
+        self._xys = [(data['x'], data['y']) for node, data in self._sorted_nodes]
+        self._kd = KDTree(self._xys)
+
+    def query_min_dist_nodes(self, x, k=1, distance_upper_bound=np.inf):
+        """
+        Finds the closest "k" nodes to the point "x" with maximum distance
+        "distance_upper_bound"
+
+        :param x: point with len 2 for x and y coordinates
+        :param k: number of closest nodes to find
+        :param distance_uppder_bound: maximum distance for found node
+
+        :returns: closest k nodes
+        """
+        distances, idxs = self._kd.query(x, k=k, distance_upper_bound=distance_upper_bound)
+        if k == 1:
+            return (self._sorted_node_ids[idxs], distances)
+        elif k > 1:
+            return ([self._sorted_node_ids[i] for i in idxs], distances)
+
+
 class GraphBuilder:
     def __init__(self, bound):
         """
         The "run" function to make Graph objects
-        
-        :param bound: user desired bounds of the graph 
+
+        :param bound: user desired bounds of the graph
         :type bound: Name or Bbox
-        
+
         TODO: Make into callable function that returns a Graph object
         TODO: Figure out what should be saved as an attribute and what should be temp
         """
@@ -272,36 +317,38 @@ class GraphBuilder:
         self.node_map = self.create_node_map()
         self.convert_to_int_graph()
         StreetDataGenerator().add_random_attributes(self.DG)
-    
+        self.init_kd_tree = KDTreeWrapper(self.init_graph)
+        self.dg_kd_tree = KDTreeWrapper(self.DG)
+
     def initialize_map(self, bound):
         """
         initialize_map takes in a bound and uses osmnx to create an inital
         map of the desired area.
-        
-        :param bound: user desired bounds of the graph 
+
+        :param bound: user desired bounds of the graph
         :type bound: Name or Bbox
         """
         init_graph = None
         if type(bound) is Name:
             init_graph = ox.graph_from_place(bound.official_name)
         elif type(bound) is Bbox:
-            init_graph = ox.graph_from_bbox(*bbox)
+            init_graph = ox.graph_from_bbox(*bound)
         else:
             raise RuntimeError("Could not create graph from specified bound")
         return init_graph
-                
+
     def create_in_out_dict(self, G):
         """
         Creates a dictionary where each key is a node in a graph whos value
         corresponds to the another dictionary that tells what nodes can be traversed
         to by following edges "out" of the key node and what edges lead "in" to the key
         node by following directed edges
-        
+
         :param G: input graph whos nodes and edges are used to create in_out dict
         :type G: MultiDiGraph
         """
         def make_dict():
-            return {'in':[],'out':[]}
+            return {'in': [], 'out': []}
 
         in_out = defaultdict(make_dict)
         for start, end in G.edges():
@@ -310,14 +357,14 @@ class GraphBuilder:
             in_out[end]['in'].append(start)
             in_out[start]['out'].append(end)
         return in_out
-    
+
     def create_node_map(self):
         """
         Creates a node map associating the intitial nodes with the corresponding
         expanded nodprint(node)es. This will allow us to add data to an entire intersection by
         just locating the closest node in the initial graph.
         """
-        node_map = {x:[] for x in self.init_graph.nodes}
+        node_map = {x: [] for x in self.init_graph.nodes}
         for node in self.DG.nodes:
             if node[2] == 'in':
                 node_map[node[0]].append(node)
@@ -326,56 +373,55 @@ class GraphBuilder:
             else:
                 raise Exception(f"Found bad node: {node}")
         return node_map
-                        
+
     def create_edges(self, segments, intersections):
         edges = segments + intersections
-        edges = [(u,v,0,d) for u,v,d in edges]
+        edges = [(u, v, 0, d) for u, v, d in edges]
         return edges
-    
+
     def create_dg(self):
         G = nx.DiGraph()
         G.add_nodes_from(self.nodes)
 
         G.add_edges_from([(e[0], e[1], e[3]) for e in self.edges])
         return G
-    
+
     def convert_to_int_graph(self):
-        node_to_int = {node:i for i,node in enumerate(self.DG.nodes)}
+        node_to_int = {node: i for i, node in enumerate(self.DG.nodes)}
 
         int_nodes = []
-        for node,data in self.DG.nodes(data=True):
-            int_nodes.append((node_to_int[node],data))
+        for node, data in self.DG.nodes(data=True):
+            int_nodes.append((node_to_int[node], data))
 
         int_edges = []
-        for n1,n2,data in list(self.DG.edges(data=True)):
-            int_edges.append((node_to_int[n1],node_to_int[n2],data))
-            
+        for n1, n2, data in list(self.DG.edges(data=True)):
+            int_edges.append((node_to_int[n1], node_to_int[n2], data))
+
         G = nx.DiGraph()
         G.add_nodes_from(int_nodes)
         G.add_edges_from(int_edges)
         self.DG = G
-        
-        self.node_map = {k:[node_to_int[n] for n in ns] for k,ns in self.node_map.items()}
-    
-    def plot_graph(self, fig_height=10):
-        ox.plot_graph(self.G, fig_height=fig_height)
-        
+
+        self.node_map = {k: [node_to_int[n] for n in ns] for k, ns in self.node_map.items()}
+
     def plot_map(self, fig_height=10):
         """
-        Helper function to the initial 
+        Helper function to the initial
         """
         ox.plot_graph(self.init_graph, fig_height=fig_height)
+
 
 class Graph:
     """
     A wrapper for nxgraphs that we should probably have
-    
+
     Allows conversions between MultiDiGraphs (visualization) and
     DiGraphs (A*)all_angles
     """
+
     def __init__(self):
         pass
-        
+
     @staticmethod
     def from_bound(bound):
         G = Graph()
@@ -383,49 +429,287 @@ class Graph:
         G.DiGraph = graph_builder.DG
         G.init_graph = graph_builder.init_graph
         G.node_map = graph_builder.node_map
+        G._init_min_dist = graph_builder.init_kd_tree
+        G._dg_min_dist = graph_builder.dg_kd_tree
         return G
-    
+
     @staticmethod
     def from_file(filepath):
         """
         Unpickle a graph object
-        
+
         :param filepath: filepath to the object
         :type filepath: string
         :rtype: Graph
         """
         with open(filepath, 'rb') as f:
             return pickle.load(f)
-        
+
     def save(self, filepath):
         """
         Pickle graph object to a file
-        
+
         :param filepath: filepath to save the object
         :type filepath: string
         :rtype: Graph
         """
         with open(filepath, 'wb') as f:
             pickle.dump(self, f)
-            
+
     def create_mdg(self):
         G = nx.MultiDiGraph()
-        G.graph = {'name': 'Test Graph','crs': {'init': 'epsg:4326'},'simplified': True}
+        G.graph = {'name': 'Test Graph', 'crs': {'init': 'epsg:4326'}, 'simplified': True}
         G.add_nodes_from(self.DiGraph.nodes(data=True))
-        G.add_edges_from([(n1,n2,0,data) for n1,n2,data in self.DiGraph.edges(data=True)])
+        G.add_edges_from([(n1, n2, 0, data) for n1, n2, data in self.DiGraph.edges(data=True)])
         return G
-            
+
     def plot_graph(self, fig_height=10):
         MDG = self.create_mdg()
         ox.plot_graph(MDG, fig_height=fig_height)
+
+    def plot_simple_graph(self, fig_height=10):
+        ox.plot_graph(self.init_graph, fig_height = fig_height)
+
+    def plot_routes(self, routes, fig_height=10): 
+        """
+        Create_mdg() appears to be nondeterministic.
+        routes is a list of routes.
+            Each route is a list of nodes traversed in order.
+
+        routes = None picks two routes of length 1 and plots those.
+        
+
+        """
+        MDG = self.create_mdg()
+        if routes:
+            ox.plot_graph_routes(MDG, routes, fig_height=fig_height)
+        else:
+            first_node_list = [list(MDG.edges)[0][0], list(MDG.edges)[0][1]]
+            second_node_list = [list(MDG.edges)[1][0], list(MDG.edges)[1][1]]
+
+            routes = [first_node_list, second_node_list]
+            ox.plot_graph_routes(MDG, routes, fig_height=fig_height)
+
+
+
+    def create_legend(self, edge_legend, node_legend):
+        legend_elements = []
+        if edge_legend:
+            for edge_label in edge_legend:
+                legend_elements.append(Line2D([0], [0], color = edge_legend[edge_label], lw=3, label = edge_label))
+
+        if node_legend:
+            for node_label in node_legend:
+                legend_elements.append(Line2D([0], [0], marker='o', color = node_legend[node_label], label = node_label,
+                              markerfacecolor=node_legend[node_label], markersize=8))
+        return legend_elements        
+
+
+
+
+    def highlight_graph(self, edge_filter_function, node_filter_function, legend_elements, title):
+        """
+        edge_filter_function and node_filter_function take in a dict and return a color.
+
+        something like:
+
+        edge_filter_function = lambda x: 'r' if x.get("traffic_volume",0)>200 else '#0F0F0F'
+
+        node_filter_function = lambda z: 'b' if z.get("y")>-77.098 else '#0F0F0F'
+
+        """
+
+        G = self.create_mdg()
+        ec = '#0F0F0F'
+        nc = '#0F0F0F'
+
+        if edge_filter_function:
+            ec = [edge_filter_function(data) for u, v, data in G.edges(data=True)]
+        if node_filter_function:
+            nc = [node_filter_function(data) for u, data in G.nodes(data=True)]
+
+        fig, ax = ox.plot.plot_graph(G, show=False, close=False, edge_color=ec, node_color=nc)
+
+
+
+        ax.legend(handles=legend_elements)
+
+        print([k for k in ax.collections])
+        return fig, ax
+
+    def show_graph(self, fig, ax):
+        plt.show()
+
+    def create_pos(self):
+        pos = {}
+        for tup in self.DiGraph.nodes(data=True):
+            node = tup[0]
+            xy_dict = tup[1]
+            pos[node] = (xy_dict["x"], xy_dict["y"])
+        return pos
+
+    def create_reverse_pos(self):
+        pos = {}
+        for tup in self.DiGraph.nodes(data=True):
+            node = tup[0]
+            xy_dict = tup[1]
+            pos[(xy_dict["x"], xy_dict["y"])] = node
+        return pos       
+
+    def create_edge_labels(self, attribute_list):
+        edge_labels = {(u, v): {attribute: d.get(attribute) for attribute in attribute_list} for u, v, d in self.DiGraph.edges(data=True)}
+        return edge_labels
+
+    def min_dist_init_nodes(self, x, k=1, distance_upper_bound=np.inf):
+        """
+        Finds the closest "k" nodes to the point "x" with maximum distance
+        "distance_upper_bound" in the init_map
+
+        :param x: point with len 2 for x and y coordinates
+        :param k: number of closest nodes to find
+        :param distance_uppder_bound: maximum distance for found node
+
+        :returns: closest k nodes in init_map
+        """
+        return self._init_min_dist.query_min_dist_nodes(x, k=k, distance_upper_bound=distance_upper_bound)
+
+    def min_dist_expd_nodes(self, x, k=1, distance_upper_bound=np.inf):
+        """
+        Finds the closest "k" nodes to the point "x" with maximum distance
+        "distance_upper_bound" in the init_map
+
+        :param x: point with len 2 for x and y coordinates
+        :param k: number of closest nodes to find
+        :param distance_uppder_bound: maximum distance for found node
+
+        :returns: closest k nodes in init_map
+        """
+        return self._dg_min_dist.query_min_dist_nodes(x, k=k, distance_upper_bound=distance_upper_bound)
 
 
 if __name__ == "__main__":
     bbox = Bbox(38.88300016, 38.878726840000006, -77.09939832, -77.10500768)
     G = Graph.from_bound(bbox)
-    print(f"First 100 nodes: {list(G.DiGraph.nodes)[:100]}\n")
-    print(f"First 100 edges: {list(G.DiGraph.edges)[:100]}\n")
+    # print([list(G.DiGraph.nodes(data=True))[i] for i in range(10)])
+
+    # print(f"First 100 nodes: {list(G.DiGraph.nodes(data=True))[:100]}\n")
+    # print(f"First 100 edges: {list(G.DiGraph.edges)[:100]}\n")
+
     
     init_graph_node = list(G.init_graph.nodes)[30] # pink node
+
     expanded_nodes = G.node_map[init_graph_node]  # yellow nodes
     print(f"Pink node: {init_graph_node} -> Yellow nodes: {expanded_nodes}\n")
+
+
+
+    def edge_filter(data):
+        if data.get("separate_path"):
+            return 'r'
+        elif data.get("crosswalk"):
+            return 'm'
+        elif data.get("bike_lane"):
+            return 'g'
+        else:
+            return "#1F1F1F"
+
+
+    def node_filter(data):
+        if data.get("x")>-77.101:
+            return 'b'
+        else:
+            return "#1F1F1F"
+
+
+    edge_legend = {"Separate path":'r', "Has crosswalk":'m', "Has bike lane":'g'}
+    node_legend = {"x > -77.01": 'b', "x <= -77.01":'#1F1F1F'}
+
+    edge_and_nodes = G.create_legend(edge_legend = edge_legend, node_legend = node_legend)
+    only_nodes = G.create_legend(edge_legend = None, node_legend = node_legend)
+
+
+    # fig, ax1 = G.highlight_graph(edge_filter_function = edge_filter, node_filter_function = node_filter, legend_elements = edge_and_nodes, title = "Test title")
+    fig, ax2 = G.highlight_graph(edge_filter_function = None, node_filter_function = node_filter, legend_elements = only_nodes, title = "Test title")
+
+    # ax1.scatter([-77.102, -77.103], [38.88,38.881], color='b')
+
+    pos = G.create_pos()
+
+    edge_labels = G.create_edge_labels(["separate_path", "crosswalk"])
+
+    # nx.draw_networkx_edge_labels(G.DiGraph, pos, ax = ax1, edge_labels = edge_labels, alpha = 0.5, rotate = False)
+
+    def on_plot_hover(event):
+        for child in ax2.get_children():
+            if type(child) is mpl.collections.LineCollection:
+                contains, dct = child.contains(event)
+                if contains:
+                    arr = dct["ind"]
+                    print([child.get_segments()[i] for i in arr])
+                    # print("over %s" % str(child.__repr__) + str(dct))
+
+    # fig.canvas.mpl_connect('motion_notify_event', on_plot_hover)
+
+
+
+    annot = ax2.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
+                    bbox=dict(boxstyle="round", fc="w"),
+                    arrowprops=dict(arrowstyle="->"))
+    annot.set_visible(False)
+
+    reverse_pos = G.create_reverse_pos()
+
+    # def update_annot(ind):
+    #     arr = ind["ind"]
+
+    #     x,y = arr[0].get_segments()
+    #                 print([child.get_segments()[i] for i in arr])
+
+
+
+    #     annot.xy = (x[ind["ind"][0]], y[ind["ind"][0]])
+    #     text = "{}, {}".format(" ".join(list(map(str,ind["ind"]))), 
+    #                            " ".join([names[n] for n in ind["ind"]]))
+    #     annot.set_text(text)
+    #     annot.get_bbox_patch().set_alpha(0.4)
+
+
+    def hover(event):
+        vis = annot.get_visible()
+        if event.inaxes == ax2:
+            for child in ax2.get_children():
+                if type(child) is mpl.collections.LineCollection:
+                    cont, ind = child.contains(event)
+                    if cont:
+
+                        arr = ind["ind"]
+
+
+
+                        annot.xy = (event.xdata, event.ydata)
+
+
+                        point1, point2 = child.get_segments()[arr[0]] #point1 and point2 are each [x, y] arrays
+                        point1_x, point1_y = point1
+                        point2_x, point2_y = point2
+
+                        node1 = reverse_pos[(point1_x, point1_y)]
+                        node2 = reverse_pos[(point2_x, point2_y)]
+                        edge = G.DiGraph.edges[node1, node2]
+
+
+                        text = str(edge) #text is now the gps coords of both points
+                        annot.set_text(text)
+                        annot.get_bbox_patch().set_alpha(0.4)
+
+                        annot.set_visible(True)
+                        fig.canvas.draw_idle()
+                    else:
+                        if vis:
+                            annot.set_visible(False)
+                            fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect("motion_notify_event", hover)
+
+    # G.show_graph(fig, ax2)
+    plt.show()
